@@ -71,9 +71,6 @@ basis computations. Additionally, compatibility with a given quiver is checked."
 Begin["`Private`"]
 
 
-MyMultiLex::usage=""
-
-
 (* ::Subsection::Closed:: *)
 (*Non-commutative multiplication*)
 
