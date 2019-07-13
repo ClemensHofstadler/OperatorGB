@@ -105,7 +105,7 @@ Print[Sequence@@Map[ToString[#,StandardForm]<>" < "&,vars[[;;-2]]] <> ToString[v
 );
 
 
-SetUpRing[knowns_List,unknowns_List,OptionsPattern[{My->False}]]:= Module[{string},
+SetUpRing[knowns_List,unknowns_List]:= Module[{string},
 	WordOrder = Join[knowns,unknowns]; 
 	Knowns = knowns; 
 	Unknowns = unknowns;
