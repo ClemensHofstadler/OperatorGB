@@ -156,10 +156,10 @@ Module[{V1a,V2a,V1b,V2b},
 	V2a = Count[a,Alternatives@@Knowns];
 	V1b = Count[b,Alternatives@@Unknowns];
 	V2b = Count[b,Alternatives@@Knowns];
-	If[(V1a < V1b) ||\[NonBreakingSpace](V1a === V1b && V2a < V2b), 
-		True,
-		DegLex[a,b]
-	]
+
+	If[(V1a < V1b) ||\[NonBreakingSpace](V1a === V1b && V2a < V2b), Return[True]];
+	If[(V1a > V1b) ||\[NonBreakingSpace](V1a === V1b && V2a > V2b), Return[False]];
+	DegLex[a,b]
 ]
 
 
