@@ -68,7 +68,7 @@ Certify::usage="Certifies whether a certain claim is a consequence of some assum
 basis computations. Additionally, compatibility with a given quiver is checked."
 
 
-Begin["`Private`"]
+(*Begin["`Private`"]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -94,7 +94,7 @@ ToProd[poly_]:= Prod[(poly//.NonCommutativeMultiply->Prod)]
 ToNonCommutativeMultiply[poly_]:= poly//.{Prod[]->1, Prod[a_]->Times[a], Prod[a_,b__]->NonCommutativeMultiply[a,b]}
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Setting up the ring*)
 
 
@@ -118,7 +118,7 @@ SetUpRing[knowns_List,unknowns_List]:= Module[{string},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Ordering*)
 
 
@@ -157,8 +157,8 @@ Module[{V1a,V2a,V1b,V2b},
 	V1b = Count[b,Alternatives@@Unknowns];
 	V2b = Count[b,Alternatives@@Knowns];
 
-	If[(V1a < V1b) ||\[NonBreakingSpace](V1a === V1b && V2a < V2b), Return[True]];
-	If[(V1a > V1b) ||\[NonBreakingSpace](V1a === V1b && V2a > V2b), Return[False]];
+	If[(V1a < V1b) || (V1a === V1b && V2a < V2b), Return[True]];
+	If[(V1a > V1b) || (V1a === V1b && V2a > V2b), Return[False]];
 	DegLex[a,b]
 ]
 
@@ -241,23 +241,17 @@ ExtractReducibleWords[sys:ReductionSystem]:=
 
 
 GenerateOverlaps[l1_List,l2_List,OptionsPattern[Parallel->True]]:=
-Module[{parallel},
-	parallel = OptionValue[Parallel];
-	If[parallel,
+	If[OptionValue[Parallel],
 		Flatten[Parallelize[Outer[{Overlap[#1,#2],Overlap[#2,#1]}&,l1,l2,1],DistributedContexts->Automatic]],
 		Flatten[Outer[{Overlap[#1,#2],Overlap[#2,#1]}&,l1,l2,1]]
 	]
-]
 
 
 GenerateOverlaps[l_List,OptionsPattern[Parallel->True]]:= 
-Module[{parallel},
-	parallel = OptionValue[Parallel];
-	If[parallel && Length[l] > 60,
+	If[OptionValue[Parallel] && Length[l] > 60,
 		Flatten[Parallelize[Outer[Overlap,l,l,1],DistributedContexts->Automatic]],
 		Flatten[Outer[Overlap,l,l,1]]
 	]
-]
 
 
 Overlap[{v_List,i_Integer},{w_List,j_Integer}]:=
@@ -275,23 +269,17 @@ Module[{k},
 
 
 GenerateInclusions[l_List,OptionsPattern[Parallel->True]]:= 
-Module[{parallel},
-	parallel = OptionValue[Parallel];
-	If[parallel && Length[l] > 60,
+	If[OptionValue[Parallel] && Length[l] > 60,
 		Flatten[Parallelize[Outer[Inclusion,l,l,1],DistributedContexts->Automatic]],
 		Flatten[Outer[Inclusion,l,l,1]]
 	]
-]
 
 
 GenerateInclusions[l1_List,l2_List,OptionsPattern[Parallel->True]]:= 
-Module[{parallel},
-	parallel = OptionValue[Parallel];
-	If[parallel,
+	If[OptionValue[Parallel],
 		Flatten[Parallelize[Outer[{Inclusion[#1,#2],Inclusion[#2,#1]}&,l1,l2,1],DistributedContexts->Automatic]],
 		Flatten[Outer[{Inclusion[#1,#2],Inclusion[#2,#1]}&,l1,l2,1]]
 	]
-]
 
 
 Inclusion[{v_List,i_Integer},{w_List,j_Integer}]:=
@@ -317,9 +305,36 @@ GenerateAmbiguities[l_List,newpart_List,maxdeg_,OptionsPattern[Parallel->True]]:
 		GenerateAmbiguities[newpart,maxdeg,Parallel->OptionValue[Parallel]]], Length[#[[1]]] <= maxdeg &]
 
 
-GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
+GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] := 
 	Select[Join[GenerateOverlaps[l,Parallel->OptionValue[Parallel]],
 		GenerateInclusions[l,Parallel->OptionValue[Parallel]]], Length[#[[1]]] <= maxdeg &]
+
+
+DeleteRedundant[amb_List]:=
+Module[{Os,B={},pairs,toDelete,rules,i,j,wi,wj,k},
+	Do[
+		Os = Select[amb,#[[4,2]]===k&];
+		pairs = Subsets[Os,{2}];
+	
+		toDelete = Map[(#/.{{Inclusion[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i===j && wi!=wj) -> If[SortedQ[wj,wi],#[[1]],#[[2]]],
+							{Inclusion[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i=!=j) -> If[i > j,#[[1]],#[[2]]],
+							{Overlap[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i===j && wi !=wj) -> If[SortedQ[wj,wi],#[[1]],#[[2]]],
+							{Overlap[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i=!=j) -> If[i > j,#[[1]],#[[2]]],
+							
+							#->Nothing}
+		
+		)&,pairs];
+			
+		Os = DeleteCases[Os,Alternatives@@toDelete];
+		If[Length[toDelete] > 0,
+			Print["Removing ", Length[toDelete], " ambiguities..."]
+		];
+		B = Join[B,Os];
+	,{k,Max[amb[[All,4,2]]]}];
+	B
+]
+
+
 
 
 (* ::Subsection::Closed:: *)
@@ -385,21 +400,22 @@ Module[{A,C},
 
 SetAttributes[Groebner,HoldFirst]
 
-Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False}]]:=
+Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->False,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
 Module[{x,y,count,spol,lt,info,p,h,G,r,t1,t2,lists,rules,sorted,oldlength,parallel,hrule,syslength,pos,incl,possible,maxdeg,outputProd,rulesCrit,linearComb},
-cofactors = {};
 info = OptionValue[Info];
 sorted = OptionValue[Sorted];
 parallel = OptionValue[Parallel];
 maxdeg = OptionValue[MaxDeg];
 outputProd = OptionValue[OutputProd];
 
+If[Head[cofactors]=!=List,cofactors={}];
+
 G = CreateRedSys[ideal];
 oldlength = syslength = Length[G];
 t1 = 0; t2 = 0; count = 0;
 If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
 
-spol = DeleteDuplicates[CheckResolvability[G,OptionValue[Ignore],MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel],SameQ[#1[[1]],#2[[1]]]&];
+spol = DeleteDuplicates[CheckResolvability[G,OptionValue[Ignore],Criterion->OptionValue[Criterion],MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel],SameQ[#1[[1]],#2[[1]]]&];
 rules = ExtractRules[G];
 
 While[Length[spol] > 0 && count < maxiter,
@@ -429,15 +445,17 @@ While[Length[spol] > 0 && count < maxiter,
 
 	If[info, Print["The reduction took ", t1]];
 	count = count + 1;
-	If[info,Print["Iteration ",count, " finished. G has now ", Length[G]," elements"];Print[]];
+	If[info,Print["Iteration ",count, " finished. G has now ", Length[G]," elements\n"]];
 	If[count < maxiter, 
-		spol = DeleteDuplicates[CheckResolvability[G,oldlength,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel],SameQ[#1[[1]],#2[[1]]]&];
+		spol = DeleteDuplicates[CheckResolvability[G,oldlength,Criterion->OptionValue[Criterion],MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel],SameQ[#1[[1]],#2[[1]]]&];
 		oldlength = Length[G];
 	];
 ];
-If[info, Print["Rewriting the cofactors has started."]];
-t2 = Timing[RewriteGroebner[cofactors,Info->info,OutputProd->outputProd];][[1]];
-If[info, Print["Rewriting the cofactors took in total ", t2]];
+If[OptionValue[Rewrite],
+	If[info, Print["Rewriting the cofactors has started."]];
+	t2 = AbsoluteTiming[RewriteGroebner[cofactors,Info->info,OutputProd->outputProd];][[1]];
+	If[info, Print["Rewriting the cofactors took in total ", t2]];
+];
 If[outputProd,
 	ToPoly[G],
 	Map[ToNonCommutativeMultiply,ToPoly[G]]
@@ -451,7 +469,7 @@ If[outputProd,
 (*For a description of the OptionPatterns see the documentation of the Groebner method.*)
 
 
-CheckResolvability[sys:ReductionSystem,oldlength:_?IntegerQ:0,OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
+CheckResolvability[sys:ReductionSystem,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->False,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
 Module[{amb,spol,info,t1,t2,rules,sorted,maxdeg,parallel,words,x,y,r},
 
 	info = OptionValue[Info];
@@ -465,6 +483,11 @@ Module[{amb,spol,info,t1,t2,rules,sorted,maxdeg,parallel,words,x,y,r},
 		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],maxdeg,Parallel->parallel];
 	][[1]];
 	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
+	
+	If[OptionValue[Criterion],
+		amb = DeleteRedundant[amb]
+	];
+	
 	If[sorted,amb = Sort[amb]];
 	
 	
@@ -695,7 +718,7 @@ ApplyRules[expr_,G_]:= Module[
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Additional stuff*)
 
 
@@ -808,7 +831,7 @@ adj[-a_]:= -adj[a];
 adj[Times[a__,NonCommutativeMultiply[b___]]]:= a adj[NonCommutativeMultiply[b]]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Quiver*)
 
 
@@ -883,8 +906,15 @@ PlotQuiver[Q:Quiver]:=
 	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
 
 
-Certify[assumptions_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
- Module[{reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc},
+(* ::Subsection::Closed:: *)
+(*Certify*)
+
+
+Certify[assumptions_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False}]]:=
+ Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t},
+	info = OptionValue[Info];
+	maxiter = OptionValue[MaxIter];
+	
 	(*check compatibility of the assumptions and the claims*)
 	sigAssump = Map[QSignature[#,Q]&,assumptions];
 	If[MemberQ[sigAssump,{}],
@@ -898,21 +928,42 @@ Certify[assumptions_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->In
 	];
 	
 	(*set up the ring*)
-	Print["Using the following monomial ordering:"];
-	SetUpRing[DeleteDuplicates[Q[[All,1]]]];
+	If[info,
+		Print["Using the following monomial ordering:"]];
+	If[OptionValue[MultiLex],
+		knowns = DeleteDuplicates[If[Head[claims]===List,
+					Cases[Q[[All,1]],Alternatives@@Flatten[Map[#/.Alternatives[Plus,Times,NonCommutativeMultiply]->List&,claims]]],
+					Cases[Q[[All,1]],Alternatives@@Flatten[claims/.Alternatives[Plus,Times,NonCommutativeMultiply]->List]]
+					]];
+		unknowns = DeleteDuplicates[Cases[Q[[All,1]],var_/;!MemberQ[knowns,var]]];
+		SetUpRing[knowns,unknowns],
+		SetUpRing[DeleteDuplicates[Q[[All,1]]]]
+	];
 	
-	(*compute the Groebner basis*)
-	If[OptionValue[Info],
-		Print["\n","Computing a (partial) Groebner basis..."]];
+	(*compute the Groebner basis and reduce the claims*)
+	If[info, Print["\n","Computing a (partial) Groebner basis and reducing the claim...\n"]];
+	(*do computation iteratively*)
 	cofactors = {};
-	G = Groebner[cofactors,assumptions,OptionValue[MaxIter],MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],OutputProd->True];
-	
-	(*reduce the claim*)
-	If[OptionValue[Info],
-		Print["\n","Reducing the claim with the Groebner basis and rewriting the linear combination in terms of the assumptions has started..."]];
-	vars = {};
+	If[Head[claims]===List,zeros = ConstantArray[0,Length[claims]],zeros=0];
+	toIgnore = Length[ideal];
+	i = 1;
+	If[info,Print["Starting iteration ", i++ ,"...\n"]];
+	G = Groebner[cofactors,assumptions,1,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],OutputProd->True,Rewrite->False];
 	reduced = ReducedForm[vars,G,claims];
-	(*rewrite the linear combinations in terms of the generators of the ideal*) 
+	While[reduced =!= zeros && i <= maxiter,
+		toIgnoreOld = Length[G];
+		If[info,Print["Starting iteration ", i++ ,"...\n"]];
+		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],OutputProd->True,Rewrite->False];
+		toIgnore = toIgnoreOld;
+		reduced = ReducedForm[vars,G,claims];
+	];
+	If[info, Print["Rewriting the cofactors has started..."]];
+	t = AbsoluteTiming[RewriteGroebner[cofactors,Info->OptionValue[Info],OutputProd->True]][[1]];
+	If[info, Print["Rewriting the cofactors took in total ", t]];
+	
+	(*rewrite the linear combination*)
+	If[OptionValue[Info],
+		Print["\nRewriting the linear combination in terms of the assumptions has started..."]];
 	certificate = Rewrite[vars,cofactors,InputProd->True];
 	(*take care of leading coefficients in the certificate*)
 	rules = Map[(lc = LeadingTerm[#][[1]];{a_,#/lc,b_}->{a/lc,#,b})&,assumptions];
@@ -939,7 +990,7 @@ Copyright[
     "written by Clemens Hofstadler"];
 
 
-End[]
+(*End[]*)
 
 
 EndPackage[]
