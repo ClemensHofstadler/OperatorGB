@@ -224,7 +224,7 @@ SortedQ := DegLex;
 ReductionSystem={RepeatedNull[List[List[___],Function[___]]]};
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Ambiguities*)
 
 
@@ -311,27 +311,20 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 
 
 DeleteRedundant[amb_List]:=
-Module[{Os,B={},pairs,toDelete,rules,i,j,wi,wj,k},
-	Do[
-		Os = Select[amb,#[[4,2]]===k&];
-		pairs = Subsets[Os,{2}];
-	
-		toDelete = Map[(#/.{{Inclusion[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i===j && wi!=wj) -> If[SortedQ[wj,wi],#[[1]],#[[2]]],
-							{Inclusion[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i=!=j) -> If[i > j,#[[1]],#[[2]]],
-							{Overlap[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i===j && wi !=wj) -> If[SortedQ[wj,wi],#[[1]],#[[2]]],
-							{Overlap[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i=!=j) -> If[i > j,#[[1]],#[[2]]],
+Module[{Os,B,pairs,toDelete,rules,i,j,wi,wj,s},
+	B = amb;
+	pairs = Subsets[amb,{2}];
+	toDelete = ParallelMap[(#/.{{Inclusion[_,wi_,_,{i_,s_}],Inclusion[_,wj_,_,{j_,s_}]}/; (i <= s && j <= s && i===j && wi=!=wj) -> If[SortedQ[wj,wi],#[[1]],#[[2]]],
+						{Inclusion[_,wi_,_,{i_,s_}],Inclusion[_,wj_,_,{j_,s_}]}/; (i <= s && j <= s && i=!=j) -> If[i > j,#[[1]],#[[2]]],
+						{Overlap[_,wi_,_,{i_,s_}],Inclusion[_,wj_,_,{j_,s_}]}/; (i <= s && j <= s && i===j && wi=!=wj) -> If[SortedQ[wj,wi],#[[1]],#[[2]]],
+						{Overlap[_,wi_,_,{i_,s_}],Inclusion[_,wj_,_,{j_,s_}]}/; (i <= s && j <= s && i=!=j) -> If[i > j,#[[1]],#[[2]]],
 							
-							#->Nothing}
-		
-		)&,pairs];
-			
-		Os = DeleteCases[Os,Alternatives@@toDelete];
+						#->Nothing}
+		)&,pairs,DistributedContexts->Automatic];
 		If[Length[toDelete] > 0,
 			Print["Removing ", Length[toDelete], " ambiguities..."]
 		];
-		B = Join[B,Os];
-	,{k,Max[amb[[All,4,2]]]}];
-	B
+	DeleteCases[B,Alternatives@@toDelete]
 ]
 
 
@@ -718,7 +711,7 @@ ApplyRules[expr_,G_]:= Module[
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Additional stuff*)
 
 
@@ -755,7 +748,7 @@ Rewrite[spolfactors:List[RepeatedNull[List[RepeatedNull[{__,__,__}]]]],cofactors
 
 Rewrite[spolfactor_, cofactor_,OptionsPattern[InputProd->False]]:=
 Module[{a,b,i,j,rules,occurring,result,spolfactors,cofactors},
-	spolfactors = Map[{ToProd[#[[1]]],ToProd[#[[2]]],ToProd[#[[3]]]}&,spolfactor];
+	spolfactors = Map[ToProd,spolfactor,{2}];
 	If[OptionValue[InputProd],
 		cofactors = cofactor,
 		cofactors = Map[{ToProd[#[[1]]],Map[ToProd,#[[2]],{2}]}&,cofactor];
@@ -771,6 +764,56 @@ Module[{a,b,i,j,rules,occurring,result,spolfactors,cofactors},
 
 
 MultiplyOut[cofactors_List]:=Expand[ToNonCommutativeMultiply[Total[Map[ToProd,cofactors]]]]
+
+
+SetAttributes[MakeMonic,HoldFirst];
+
+MakeMonic[ideal_]:=
+Module[{lc},
+	lc = (LeadingTerm/@ideal)[[All,1]];
+	ideal = ideal/lc;
+	lc
+]
+
+
+Interreduce[ideal_]:=
+Module[{G,rules,i,s,gi,iter,cofactors,r,cofactorRules,rule,lt,h},
+	(*set everything up*)
+	G = Map[ToProd,ideal];
+	rules = ExtractRules[CreateRedSys[ideal]];
+	i = 1; s = Length[G];
+	cofactors = Table[{},s];
+	cofactorRules = {};
+	(*actual interreduction*)
+	While[i < s,
+		If[G[[i]]===Null,i++;Continue[]];
+		r = Reap[gi = G[[i]]//.Drop[rules,{i}]];
+		If[gi===0,
+			rules[[i]] = Null->Null;
+			G [[i]] = Null;
+			cofactors[[i]] = Null;
+			i++,
+			If[gi =!= G[[i]],
+				lt = LeadingTerm[gi];
+				If[lt[[1]] =!= 1, 
+						gi = Expand[1/lt[[1]]*gi]; 
+						r[[2,1]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ r[[2,1]])
+				];
+				cofactors[[i]] = Join[{{Prod[]/lt[[1]],G[[i]],Prod[]}},cofactors[[i]],r[[2,1]]];
+				rule = {a_,gi,b_}->Sequence@@Map[{Prod[a,#[[1]]],#[[2]],Prod[#[[3]],b]}&,cofactors[[i]]];
+				AppendTo[cofactorRules,rule];
+				G[[i]]=gi;
+				rules[[i]]=Sequence@@ExtractRules[{CreateRedSys[gi]}];
+				i = 1,
+				i++;
+			];
+		];
+	];
+	(*take care of empty cofactor lists and Null entries*)
+	Do[If[cofactors[[i]]==={},cofactors[[i]]={{Prod[],G[[i]],Prod[]}}],{i,Length[cofactors]}];
+	cofactors = DeleteCases[cofactors//.cofactorRules,Null];
+	{DeleteCases[G,Null],cofactors}
+]
 
 
 (* ::Subsection::Closed:: *)
@@ -828,7 +871,8 @@ adj[adj[a__]] := a
 adj[NonCommutativeMultiply[a_,b_]] := NonCommutativeMultiply[adj[b],adj[a]]
 adj[1]:= 1
 adj[-a_]:= -adj[a];
-adj[Times[a__,NonCommutativeMultiply[b___]]]:= a adj[NonCommutativeMultiply[b]]
+adj[Times[a_?CoeffQ,NonCommutativeMultiply[b___]]]:= a adj[NonCommutativeMultiply[b]]
+adj[Times[a_?CoeffQ,b_]]:=a adj[b]
 
 
 (* ::Subsection::Closed:: *)
@@ -910,10 +954,12 @@ PlotQuiver[Q:Quiver]:=
 (*Certify*)
 
 
-Certify[assumptions_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False}]]:=
- Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t},
+Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False}]]:=
+ Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
+	
+	assumptions = assumptionsInput;
 	
 	(*check compatibility of the assumptions and the claims*)
 	sigAssump = Map[QSignature[#,Q]&,assumptions];
@@ -940,6 +986,14 @@ Certify[assumptions_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->In
 		SetUpRing[DeleteDuplicates[Q[[All,1]]]]
 	];
 	
+	(*make ideal monic*)
+	lc = MakeMonic[assumptions];
+	
+	(*interreduce the generators
+	{assumptions,redCofactors} = Interreduce[assumptions];
+	If[info, Print["Interreduced the input from ", Length[assumptionsInput], " polynomials to ", Length[redGen], "\n"]];
+	*)
+	
 	(*compute the Groebner basis and reduce the claims*)
 	If[info, Print["\n","Computing a (partial) Groebner basis and reducing the claim...\n"]];
 	(*do computation iteratively*)
@@ -965,8 +1019,13 @@ Certify[assumptions_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->In
 	If[OptionValue[Info],
 		Print["\nRewriting the linear combination in terms of the assumptions has started..."]];
 	certificate = Rewrite[vars,cofactors,InputProd->True];
+	
+	(*rewrite in terms of assumptionsInput and not of the interreduced assumptions
+	rules = 
+	*)
+	
 	(*take care of leading coefficients in the certificate*)
-	rules = Map[(lc = LeadingTerm[#][[1]];{a_,#/lc,b_}->{a/lc,#,b})&,assumptions];
+	rules = MapIndexed[{a_,#1/lc[[First[#2]]],b_}->{a/lc[[First[#2]]],#1,b}&,assumptionsInput];
 	If[Head[claims]===List,
 		certificate = Map[#/.rules&, certificate],
 		certificate = certificate/.rules
