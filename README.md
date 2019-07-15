@@ -9,5 +9,5 @@ Changes compared to version 1.0.0:
   * Certify also provides multigraded lexicographic order (first block: all variables appearing in the claims - assumed to be the known variables; second block: the rest)
   * Bug fix in adj
   * Added interreduction procedure (but not integrated in any other procedure)
-  --
+  ---------
   * Make everything monic in the beginning?
