@@ -8,7 +8,10 @@ Changes compared to version 1.0.0:
   * Certify computes the Groebner basis iteratively one iteration at a time
   * Certify also provides multigraded lexicographic order (first block: all variables appearing in the claims - assumed to be the known variables; second block: the rest)
   * Bug fix in adj
-  * Added interreduction procedure and integrated it in Certify (but does not really speed things up)
+  * Added interreduction procedure and integrated it in Certify.
+      ** Sometimes it speeds things up; sometimes not.
+      ** What output format?
+      ** Do this also automatically in Groebner?
   ---------
   * DeleteRedundant: Delete dedundant ambiguities (Mora's approach)
   * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 25, Criterion: True => 8.5 sec
