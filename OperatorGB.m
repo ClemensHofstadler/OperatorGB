@@ -310,7 +310,7 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 		GenerateInclusions[l,Parallel->OptionValue[Parallel]]], Length[#[[1]]] <= maxdeg &]
 
 
-DeleteRedundant[amb_List]:=
+DeleteRedundant[amb_List]:= 
 Module[{Os,B={},pairs,toDelete,rules,i,j,wi,wj,k},
 	Do[
 		Os = Select[amb,#[[4,2]]===k&];
@@ -378,7 +378,7 @@ Module[{A,C},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Gr\[ODoubleDot]bner basis*)
 
 
@@ -764,7 +764,10 @@ Module[{a,b,i,j,rules,occurring,result,spolfactors,cofactors},
 		rules = Map[{a__,#[[1]],b__} -> Sequence@@Table[{Prod[a,#[[2,j,1]]],#[[2,j,2]],Prod[#[[2,j,3]],b]},{j,Length[#[[2]]]}]&,Extract[cofactors,occurring]];
 		result = spolfactors/.rules;
 	];
-	Map[ToNonCommutativeMultiply, result//CollectLeft//ExpandLeft]
+	If[OptionValue[InputProd],
+		result//CollectLeft//ExpandLeft,
+		Map[ToNonCommutativeMultiply, result//CollectLeft//ExpandLeft]
+	]
 ]
 
 
@@ -955,12 +958,12 @@ PlotQuiver[Q:Quiver]:=
 	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Certify*)
 
 
 Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False}]]:=
- Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors},
+ Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors,k,l,count},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
 	
@@ -994,17 +997,16 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	(*make ideal monic*)
 	lc = MakeMonic[assumptions];
 	
-	(*interreduce the generators
+	(*interreduce the generators*)
 	{assumptions,redCofactors} = Interreduce[assumptions];
-	If[info, Print["Interreduced the input from ", Length[assumptionsInput], " polynomials to ", Length[redGen], "\n"]];
-	*)
+	If[info, Print["\nInterreduced the input from ", Length[assumptionsInput], " polynomials to ", Length[assumptions], ".\n"]];
 	
 	(*compute the Groebner basis and reduce the claims*)
-	If[info, Print["\n","Computing a (partial) Groebner basis and reducing the claim...\n"]];
+	If[info, Print["Computing a (partial) Groebner basis and reducing the claim...\n"]];
 	(*do computation iteratively*)
 	cofactors = {};
 	If[Head[claims]===List,zeros = ConstantArray[0,Length[claims]],zeros=0];
-	toIgnore = Length[ideal];
+	toIgnore = Length[assumptions];
 	i = 1;
 	If[info,Print["Starting iteration ", i++ ,"...\n"]];
 	G = Groebner[cofactors,assumptions,1,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],OutputProd->True,Rewrite->False];
@@ -1014,7 +1016,11 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 		If[info,Print["Starting iteration ", i++ ,"...\n"]];
 		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],OutputProd->True,Rewrite->False];
 		toIgnore = toIgnoreOld;
-		reduced = ReducedForm[vars,G,claims];
+		count = 0;
+		While[reduced =!= zeros && count < 4,
+			reduced = ReducedForm[vars,RandomSample[G],claims];
+			count++;
+		];
 	];
 	If[info, Print["Rewriting the cofactors has started..."]];
 	t = AbsoluteTiming[RewriteGroebner[cofactors,Info->OptionValue[Info],OutputProd->True]][[1]];
@@ -1025,17 +1031,18 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 		Print["\nRewriting the linear combination in terms of the assumptions has started..."]];
 	certificate = Rewrite[vars,cofactors,InputProd->True];
 	
-	(*rewrite in terms of assumptionsInput and not of the interreduced assumptions
-	rules = 
-	*)
+	(*rewrite in terms of assumptionsInput and not of the interreduced assumptions*)
+	rules = Table[{k_,ToProd[assumptions[[i]]],l_}->
+		Sequence@@Table[{Prod[k,redCofactors[[i,j,1]]],redCofactors[[i,j,2]],Prod[redCofactors[[i,j,3]],l]},{j,Length[redCofactors[[i]]]}],{i,Length[redCofactors]}];
+	certificate = certificate/.rules;
+	If[Head[claims]===List,
+		certificate = Map[Map[ToNonCommutativeMultiply,#,{2}]&,certificate],
+		certificate = Map[ToNonCommutativeMultiply,certificate,{2}]
+	];
 	
 	(*take care of leading coefficients in the certificate*)
 	rules = MapIndexed[{a_,#1/lc[[First[#2]]],b_}->{a/lc[[First[#2]]],#1,b}&,assumptionsInput];
-	If[Head[claims]===List,
-		certificate = Map[#/.rules&, certificate],
-		certificate = certificate/.rules
-	];
-	
+	certificate = certificate/.rules;
 	(*return the reduced claims and the linear combinations*)
 	{sigAssump,sigClaim,reduced,certificate}
 ]
