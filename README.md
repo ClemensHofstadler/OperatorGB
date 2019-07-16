@@ -8,6 +8,6 @@ Changes compared to version 1.0.0:
   * Certify computes the Groebner basis iteratively one iteration at a time
   * Certify also provides multigraded lexicographic order (first block: all variables appearing in the claims - assumed to be the known variables; second block: the rest)
   * Bug fix in adj
-  * Added interreduction procedure (but not integrated in any other procedure)
+  * Added interreduction procedure and integrated it in Certify (but does not really speed things up)
   ---------
-  * Make everything monic in the beginning?
+  * DeleteRedundant: Delete dedundant ambiguities (*TODO*)
