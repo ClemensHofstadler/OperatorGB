@@ -224,7 +224,7 @@ SortedQ := DegLex;
 ReductionSystem={RepeatedNull[List[List[___],Function[___]]]};
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Ambiguities*)
 
 
@@ -310,7 +310,11 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 		GenerateInclusions[l,Parallel->OptionValue[Parallel]]], Length[#[[1]]] <= maxdeg &]
 
 
-DeleteRedundant[amb_List]:= 
+(* ::Text:: *)
+(*Approach from the PhD Thesis*)
+
+
+DeleteRedundantPhD[amb_List]:= 
 Module[{Os,B={},pairs,toDelete,rules,i,j,wi,wj,k},
 	Do[
 		Os = Select[amb,#[[4,2]]===k&];
@@ -332,6 +336,32 @@ Module[{Os,B={},pairs,toDelete,rules,i,j,wi,wj,k},
 		B = Join[B,Os];
 	,{k,Max[amb[[All,4,2]]]}];
 	B
+]
+
+
+(* ::Text:: *)
+(*Approach from Mora*)
+
+
+DeleteRedundant[ambInput_List,OptionsPattern[{Info->False}]]:= 
+Module[{selected,i,amb,result,f,t},
+	t = AbsoluteTiming[
+	amb = SortBy[ambInput,Length[#[[1]]&]];
+	result = {};
+	Do[
+		selected = Select[amb,Max[#[[4]]]===i &];
+		While[Length[selected] > 0,
+			f = First[selected];
+			selected = Drop[selected,1];
+			AppendTo[result,f];
+			selected = DeleteCases[selected,_[{___,Sequence@@f[[1]],___},__]];
+		];
+		,{i,Min[Flatten[amb[[All,4]]]],Max[Flatten[amb[[All,4]]]]}
+	];
+	][[1]];
+	If[OptionValue[Info],
+		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t,"."]];
+	result
 ]
 
 
@@ -378,7 +408,7 @@ Module[{A,C},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Gr\[ODoubleDot]bner basis*)
 
 
@@ -483,7 +513,7 @@ Module[{amb,spol,info,t1,t2,rules,sorted,maxdeg,parallel,words,x,y,r},
 	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
 	
 	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb]
+		amb = DeleteRedundant[amb,Info->info]
 	];
 	
 	If[sorted,amb = Sort[amb]];
@@ -716,7 +746,7 @@ ApplyRules[expr_,G_]:= Module[
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Additional stuff*)
 
 
@@ -962,7 +992,7 @@ PlotQuiver[Q:Quiver]:=
 (*Certify*)
 
 
-Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False}]]:=
+Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
  Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors,k,l,count},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
@@ -982,8 +1012,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	];
 	
 	(*set up the ring*)
-	If[info,
-		Print["Using the following monomial ordering:"]];
+	Print["Using the following monomial ordering:"];
 	If[OptionValue[MultiLex],
 		knowns = DeleteDuplicates[If[Head[claims]===List,
 					Cases[Q[[All,1]],Alternatives@@Flatten[Map[#/.Alternatives[Plus,Times,NonCommutativeMultiply]->List&,claims]]],
@@ -1009,12 +1038,12 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	toIgnore = Length[assumptions];
 	i = 1;
 	If[info,Print["Starting iteration ", i++ ,"...\n"]];
-	G = Groebner[cofactors,assumptions,1,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],OutputProd->True,Rewrite->False];
+	G = Groebner[cofactors,assumptions,1,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],OutputProd->True,Rewrite->False];
 	reduced = ReducedForm[vars,G,claims];
 	While[reduced =!= zeros && i <= maxiter,
 		toIgnoreOld = Length[G];
 		If[info,Print["Starting iteration ", i++ ,"...\n"]];
-		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],OutputProd->True,Rewrite->False];
+		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],OutputProd->True,Rewrite->False];
 		toIgnore = toIgnoreOld;
 		count = 0;
 		While[reduced =!= zeros && count < 4,
@@ -1027,8 +1056,8 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	If[info, Print["Rewriting the cofactors took in total ", t]];
 	
 	(*rewrite the linear combination*)
-	If[OptionValue[Info],
-		Print["\nRewriting the linear combination in terms of the assumptions has started..."]];
+	If[info,
+		Print["\nRewriting the linear combination in terms of the assumptions has started...\n"]];
 	certificate = Rewrite[vars,cofactors,InputProd->True];
 	
 	(*rewrite in terms of assumptionsInput and not of the interreduced assumptions*)
@@ -1036,14 +1065,20 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 		Sequence@@Table[{Prod[k,redCofactors[[i,j,1]]],redCofactors[[i,j,2]],Prod[redCofactors[[i,j,3]],l]},{j,Length[redCofactors[[i]]]}],{i,Length[redCofactors]}];
 	certificate = certificate/.rules;
 	If[Head[claims]===List,
-		certificate = Map[Map[ToNonCommutativeMultiply,#,{2}]&,certificate],
-		certificate = Map[ToNonCommutativeMultiply,certificate,{2}]
+		certificate = Map[Map[ToNonCommutativeMultiply,ExpandLeft[CollectLeft[#]],{2}]&,certificate],
+		certificate = Map[ToNonCommutativeMultiply,ExpandLeft[CollectLeft[certificate]],{2}]
 	];
 	
 	(*take care of leading coefficients in the certificate*)
 	rules = MapIndexed[{a_,#1/lc[[First[#2]]],b_}->{a/lc[[First[#2]]],#1,b}&,assumptionsInput];
 	certificate = certificate/.rules;
 	(*return the reduced claims and the linear combinations*)
+	If[info,
+		If[reduced === zeros,
+			Print["Done! All claims were successfully reduced to 0."],
+			Print["Done! Not all claims could be reduced to 0."]
+		]
+	];
 	{sigAssump,sigClaim,reduced,certificate}
 ]
 
