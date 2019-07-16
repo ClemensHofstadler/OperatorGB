@@ -10,4 +10,5 @@ Changes compared to version 1.0.0:
   * Bug fix in adj
   * Added interreduction procedure and integrated it in Certify (but does not really speed things up)
   ---------
-  * DeleteRedundant: Delete dedundant ambiguities (*TODO*)
+  * DeleteRedundant: Delete dedundant ambiguities (Mora's approach)
+  * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 25, Criterion: True => 8.5 sec
