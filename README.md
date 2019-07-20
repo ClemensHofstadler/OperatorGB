@@ -15,6 +15,9 @@ Changes compared to version 1.0.0:
  * DeleteRedundant: Delete dedundant ambiguities (Mora's approach)
   ---------
   * Compute minimal Groebner basis (Thm. 5.3.10 in PhD thesis)
-  * Just 4 fun: F4 (probably with tracing of cofactors)
+  * Just 4 fun: F4 
+      - Improve performance
+      - Add tracing of cofactors
+  * Discuss F5 criteria
   * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 25, Criterion: True => 8.5 sec
   
