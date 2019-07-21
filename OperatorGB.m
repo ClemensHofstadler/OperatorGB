@@ -71,7 +71,7 @@ basis computations. Additionally, compatibility with a given quiver is checked."
 (*Begin["`Private`"]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Non-commutative multiplication*)
 
 
@@ -218,13 +218,6 @@ SortedQ := DegLex;
 
 
 (* ::Subsection::Closed:: *)
-(*Data Type*)
-
-
-ReductionSystem={RepeatedNull[List[List[___],Function[___]]]};
-
-
-(* ::Subsection::Closed:: *)
 (*Ambiguities*)
 
 
@@ -232,8 +225,8 @@ ReductionSystem={RepeatedNull[List[List[___],Function[___]]]};
 (*Reducible Words*)
 
 
-ExtractReducibleWords[sys:ReductionSystem]:=
-	MapIndexed[{#1[[1]],Sequence@@#2}&,sys]
+ExtractReducibleWords[sys_]:=
+	MapIndexed[{#1[[1]],#2[[1]]}&,sys]
 
 
 (* ::Text:: *)
@@ -373,17 +366,16 @@ Module[{selected,i,amb,result,f,t},
 (*SPoly[amb,fi,fj] computes the S-polynomial corresponding to the ambiguity amb, which comes from the two reduction rules fi and fj. Additionally, the linear combination how the S-polynomial was computed from fi and fj is returned in a list. *)
 
 
-SPoly[amb:(Alternatives[Overlap,Inclusion][_List,_List,_List,_List]),fi:{List[___],Function[___]},fj:{List[___],Function[___]}]:=
+SPoly[amb:(Alternatives[Overlap,Inclusion][_List,_List,_List,_List]),fi_,fj_]:=
 Module[{A,C},
-
 	C = Prod@@amb[[2]];
 	A = Prod@@amb[[3]];
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
-			{Prod[fi[[2]][Sequence@@fi[[1]]],C] - Prod[A,fj[[2]][Sequence@@fj[[1]]]],
+			{Prod[fi[[2]],C] - Prod[A,fj[[2]]],
 				{{A,ToPoly[fj],Prod[]},{-Prod[],ToPoly[fi],C}}},
 			(*Inclusion[CBA,C,A]*)
-			{fi[[2]][Sequence@@fi[[1]]] - Prod[C,fj[[2]][Sequence@@fj[[1]]],A],
+			{fi[[2]] - Prod[C,fj[[2]],A],
 			{{C,ToPoly[fj],A},{-Prod[],ToPoly[fi],Prod[]}}}
 	]
 ]
@@ -393,17 +385,15 @@ Module[{A,C},
 (*Same as Poly but without returning the linear combination.*)
 
 
-SPoly2[amb:(Alternatives[Overlap,Inclusion][_List,_List,_List,_List]),fi:{List[___],Function[___]},fj:{List[___],Function[___]}]:=
+SPoly2[amb:(Alternatives[Overlap,Inclusion][_List,_List,_List,_List]),fi_,fj_]:=
 Module[{A,C},
-
 	C = Sequence@@amb[[2]];
 	A = Sequence@@amb[[3]];
-
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
-			Prod[fi[[2]][Sequence@@fi[[1]]],C] - Prod[A,fj[[2]][Sequence@@fj[[1]]]],
+			Prod[fi[[2]],C] - Prod[A,fj[[2]]],
 			(*Inclusion[CBA,C,A]*)
-			Prod[fi[[2]][Sequence@@fi[[1]]]] - Prod[C,fj[[2]][Sequence@@fj[[1]]],A]
+			fi[[2]] - Prod[C,fj[[2]],A]
 	]
 ]
 
@@ -429,53 +419,52 @@ Module[{A,C},
 SetAttributes[Groebner,HoldFirst]
 
 Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->False,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
-Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd},
-info = OptionValue[Info];
-sorted = OptionValue[Sorted];
-parallel = OptionValue[Parallel];
-maxdeg = OptionValue[MaxDeg];
-outputProd = OptionValue[OutputProd];
+Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
+	info = OptionValue[Info];
+	sorted = OptionValue[Sorted];
+	parallel = OptionValue[Parallel];
+	maxdeg = OptionValue[MaxDeg];
+	outputProd = OptionValue[OutputProd];
+	criterion = OptionValue[Criterion];
 
-If[Head[cofactors]=!=List,cofactors={}];
+	If[Head[cofactors]=!=List,cofactors={}];
 
-G = CreateRedSys[ideal];
-oldlength = Length[G];
-t1 = 0; t2 = 0; count = 0;
-If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
+	G = CreateRedSys[ideal];
+	oldlength = Length[G];
+	t1 = 0; t2 = 0; count = 0;
+	If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
 
-spol = DeleteDuplicates[CheckResolvability[G,OptionValue[Ignore],Criterion->OptionValue[Criterion],MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel],SameQ[#1[[1]],#2[[1]]]&];
-rules = ExtractRules[G];
+	spol = CheckResolvability[G,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+	rules = ExtractRules[G];
 
-While[Length[spol] > 0 && count < maxiter,
-	t1 = AbsoluteTiming[
-	Monitor[While[Length[spol]\[NonBreakingSpace]> 0,
-		
-		(*pick next S-polynomial*)
-		p = First[spol];
-		spol = Drop[spol,1];
-		
-		(*reduce it*)
-		r = Reap[p[[1]]//.rules]; 
-		h = r[[1]];
-		If[Length[r[[2]]] > 0,
-			p[[2]]\[NonBreakingSpace]= Join[p[[2]],r[[2,1]]]
-		];
-		lt = LeadingTerm[h];
-		If[lt[[1]] =!= 1, 
-			h = Expand[1/lt[[1]]*h]; p[[2]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[2]])];
-		If[h =!= 0,
-			hrule = CreateRedSys[h];
-			AppendTo[G,hrule];
-			AppendTo[cofactors,{h,p[[2]]}]; 
-			AppendTo[rules,Sequence@@ExtractRules[{hrule}]];
-		];
-	];,Length[spol]];][[1]];
+	While[Length[spol] > 0 && count < maxiter,
+		t1 = AbsoluteTiming[
+		i = Length[spol];
+		Monitor[Do[
+			(*reduce it*)
+			r = Reap[p[[1]]//.rules]; 
+			h = r[[1]];
+			If[h =!= 0,
+				If[Length[r[[2]]] > 0,
+					p[[2]]\[NonBreakingSpace]= Join[p[[2]],r[[2,1]]]
+				];
+				lt = LeadingTerm[h];
+				If[lt[[1]] =!= 1, 
+					h = Expand[1/lt[[1]]*h]; p[[2]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[2]])
+				];
+				hrule = CreateRedSys[h];
+				AppendTo[G,hrule];
+				AppendTo[cofactors,{h,p[[2]]}]; 
+				AppendTo[rules,Sequence@@ExtractRules[{hrule}]];
+			];
+			i--;
+	,{p,spol}];,i];][[1]];
 
 	If[info, Print["The reduction took ", t1]];
 	count = count + 1;
 	If[info,Print["Iteration ",count, " finished. G has now ", Length[G]," elements\n"]];
 	If[count < maxiter, 
-		spol = DeleteDuplicates[CheckResolvability[G,oldlength,Criterion->OptionValue[Criterion],MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel],SameQ[#1[[1]],#2[[1]]]&];
+		spol = CheckResolvability[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
 		oldlength = Length[G];
 	];
 ];
@@ -486,7 +475,7 @@ If[OptionValue[Rewrite],
 ];
 If[outputProd,
 	ToPoly[G],
-	Map[ToNonCommutativeMultiply,ToPoly[G]]
+	ToNonCommutativeMultiply[ToPoly[G]]
 ]
 ]
 
@@ -497,53 +486,47 @@ If[outputProd,
 (*For a description of the OptionPatterns see the documentation of the Groebner method.*)
 
 
-CheckResolvability[sys:ReductionSystem,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->False,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
-Module[{amb,spol,info,t1,t2,rules,sorted,maxdeg,parallel,words,x,y,r},
-
+CheckResolvability[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->False,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
+Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	info = OptionValue[Info];
-	sorted = OptionValue[Sorted];
 	parallel = OptionValue[Parallel];
-	maxdeg = OptionValue[MaxDeg];
 
 	(*generate ambiguities*)
 	words = ExtractReducibleWords[sys];
 	t1 = AbsoluteTiming[
-		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],maxdeg,Parallel->parallel];
+		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],OptionValue[MaxDeg],Parallel->parallel];
 	][[1]];
 	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
 	
+	(*process ambiguities*)
 	If[OptionValue[Criterion],
 		amb = DeleteRedundant[amb,Info->info]
 	];
-	
-	If[sorted,amb = Sort[amb]];
-	
+	If[OptionValue[Sorted],amb = Sort[amb]];
 	
 	(*generate S-polynomials*)
 	t2 = AbsoluteTiming[
-	x = AbsoluteTiming[
 	If[parallel,
 		spol = DeleteCases[ParallelMap[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],{0,___}],
 		spol = DeleteCases[Map[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb],{0,___}]
 	];		
 	][[1]];
-	If[info,Print["Generating S-polys: ",x]];
+	If[info,Print["Generating S-polys: ",t2]];
+	
 	(*reduce S-polynomials*)
 	rules = ExtractRules[sys];
-	
 	(*parallelizing this makes it only slower*)
-	y = AbsoluteTiming[
-	spol = DeleteCases[Map[(r = Reap[#[[1]]//.rules]; If[r[[1]]=!= 0,
+	t3 = AbsoluteTiming[
+	spol = DeleteDuplicatesBy[DeleteCases[Map[(r = Reap[#[[1]]//.rules]; If[r[[1]]=!= 0,
 											If[Length[r[[2]]] > 0,
 												{r[[1]],Join[#[[2]],r[[2,1]]]},
 												{r[[1]],#[[2]]}
 												],
 											{}
-											])&,spol],{}];
+											])&,spol],{}],First];
 	][[1]];
-	If[info,Print["Reducing S-polys: ",y]];
-	][[1]];
-	If[info, Print[Length[spol]," different S-polynomials did not reduce to 0 (computation took ",t2,")"]];
+	If[info,Print["Reducing S-polys: ",t3]];
+	If[info, Print[Length[spol]," different S-polynomials did not reduce to 0 (computation took ",t2+t3,")"]];
 	spol
 ]
 
@@ -553,17 +536,15 @@ Module[{amb,spol,info,t1,t2,rules,sorted,maxdeg,parallel,words,x,y,r},
 (*Sys has to consist of pairs {word,func}, which can be obtained using the method CreateRedSys.*)
 
 
-ExtractRules[sys:ReductionSystem]:=
-Module[{a,b,c,coeff,h,i,j,p,terms,q},
-	a=Unique[];b=Unique[];
-	coeff = Unique[];
-	terms = sys[[All,1]];
+ExtractRules[sys_]:=
+Module[{a,b,coeff,i,p,q},
+	a=Unique[];b=Unique[];coeff=Unique[];
 	Table[
-		p=Prod[Pattern[Evaluate[a],BlankNullSequence[]],terms[[i]],Pattern[Evaluate[b],BlankNullSequence[]]];
-		q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[i,2]][Sequence@@terms[[i]]],Evaluate[b]]];
-		With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],ToPoly[sys[[i]]],Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]
-	,{i,Length[sys]}]//ReleaseHold
-];
+		p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],i[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
+		q = Expand[Evaluate[coeff]*Prod[Evaluate[a],i[[2]],Evaluate[b]]];
+		With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],ToPoly[i],Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]
+	,{i,sys}]//ReleaseHold
+]
 
 
 SetAttributes[RewriteGroebner,HoldFirst]
@@ -587,7 +568,7 @@ Module[{a,b,i,j,count,rules,info,occurring},
 	,{i,Length[cofactors]-1}];
 	,count];
 	If[!OptionValue[OutputProd],
-		cofactors = Map[Map[ToNonCommutativeMultiply,#]&,cofactors];
+		cofactors = ToNonCommutativeMultiply[cofactors];
 	];
 ]
 
@@ -736,7 +717,7 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,outputProd,n
 			oldlength = Length[G];
 		];
 	];
-	Map[ToNonCommutativeMultiply,G]
+	ToNonCommutativeMultiply[G]
 ]
 
 
@@ -800,31 +781,30 @@ Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 SetAttributes[ReducedForm,HoldFirst]
 
 ReducedForm[cofactors_,G_,exp_]:=
-Module[{t,lists,rules,sys},
+Module[{t,rules},
 	cofactors = {};
-	sys = CreateRedSys[G];
-	rules = ExtractRules[sys];
+	rules = ExtractRules[CreateRedSys[G]];
 	t = Reap[ToProd[exp]//.rules];
 	If[Length[t[[2]]]>0,
 		cofactors = ReplacePart[#,1->-#[[1]]]&/@t[[2,1]];
-		cofactors = Map[ToNonCommutativeMultiply,cofactors]
+		cofactors = ToNonCommutativeMultiply[cofactors]
 	];
 	ToNonCommutativeMultiply[t[[1]]]
 ]
 
 
 ReducedForm[cofactors_,G_,exp:_?ListQ]:=
-Module[{i,j,k,t,lists,rules,sys},
-	cofactors = Table[{},{i,Length[exp]}];
-	sys = CreateRedSys[G];
-	rules = ExtractRules[sys];
+Module[{i,t,rules},
+	cofactors = Table[{},Length[exp]];
+	rules = ExtractRules[CreateRedSys[G]];
 	Table[
-		t = Reap[ToProd[exp[[j]]]//.rules];
+		t = Reap[ToProd[exp[[i]]]//.rules];
 		If[Length[t[[2]]]>0,
-			cofactors[[j]] = ReplacePart[#,1->-#[[1]]]&/@t[[2,1]];
-			cofactors[[j]] = Map[ToNonCommutativeMultiply,cofactors[[j]]];
+			cofactors[[i]] = ReplacePart[#,1->-#[[1]]]&/@t[[2,1]];
+			cofactors[[i]] = ToNonCommutativeMultiply[cofactors[[i]]];
 		];
-		ToNonCommutativeMultiply[t[[1]]],{j,Length[exp]}
+		ToNonCommutativeMultiply[t[[1]]]
+	,{i,Length[exp]}
 	]
 ]
 
@@ -847,74 +827,71 @@ Module[{i,j,k,t,lists,rules,sys},
 
 
 GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{Ignore->0, MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,Criterion->False}]]:=
-Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,multiples,incl,hrule,pos,sorted,parallel,syslength},
+Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sorted,parallel,syslength,i},
 
-info = OptionValue[Info];
-criterion = OptionValue[Criterion];
-sorted = OptionValue[Sorted];
-parallel = OptionValue[Parallel];
-maxdeg = OptionValue[MaxDeg];
-
-G = CreateRedSys[ideal];
-syslength = oldlength = Length[G];
-If[info,Print["G has ", Length[G]," elements in the beginning."];Print[]];
-count = 0; t = 0;
-
-spol = DeleteDuplicates[CheckResolvability2[G,OptionValue[Ignore],MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel]];
-rules = ExtractRules2[G];
-
-While[Length[spol] > 0 && count < maxiter,
-	t = AbsoluteTiming[Monitor[While[Length[spol] > 0,
-		p = First[spol];
-		spol = Drop[spol,1];
-		h = p//.rules;
-		lt = LeadingTerm[h];
-		If[lt[[1]] =!= 1, h = Expand[1/lt[[1]]*h]];
-		If[h =!= 0, 
-			hrule = CreateRedSys[h];
-			If[criterion,
-				pos = Position[G[[syslength+1;;]],{{___,Sequence@@lt[[2]],___},__}];
-				incl = Flatten[DeleteCases[Map[Inclusion[{G[[#,1]],#},{lt[[2]],Length[G]+1}]&,Flatten[pos]],{}]];
-				pos = Cases[Map[{SPoly2[#,G[[#[[4,1]]]],hrule],#[[4,1]]}&,incl],{0,___}];
-				pos = Partition[pos[[All,2]],1];
-				G = Delete[G,pos]; rules = Delete[rules,pos];
-			];
-			AppendTo[G,hrule]; AppendTo[rules,Sequence@@ExtractRules2[{G[[-1]]}]]];
-	];,Length[spol]];][[1]];
-	If[info, Print["The reduction took ", t]];
-	count = count + 1;
-	If[info,Print["Iteration ",count, " finished. G has now ", Length[G]," elements"];Print[]];
-	If[count < maxiter,
-		spol = DeleteDuplicates[CheckResolvability2[G,oldlength,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel]];
-		oldlength = Length[G];
-	];];
-Map[ToNonCommutativeMultiply,ToPoly[G]]
-]
-
-
-CheckResolvability2[sys:ReductionSystem,oldlength:_?IntegerQ:0,OptionsPattern[{MaxDeg->Infinity,Info->False,Sorted->False,Parallel->True}]]:=
-Module[{amb,spol,info,t1,t2,t3,lists,rules,words,sorted,parallel,maxdeg},
 	info = OptionValue[Info];
+	criterion = OptionValue[Criterion];
 	sorted = OptionValue[Sorted];
 	parallel = OptionValue[Parallel];
 	maxdeg = OptionValue[MaxDeg];
 
+	G = CreateRedSys[ideal];
+	syslength = oldlength = Length[G];
+	If[info,Print["G has ", Length[G]," elements in the beginning."];Print[]];
+	count = 0; t = 0;
+
+	spol = CheckResolvability2[G,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+	rules = ExtractRules2[G];
+
+	While[Length[spol] > 0 && count < maxiter,
+		i = Length[spol];
+		t = AbsoluteTiming[Monitor[Do[
+			h = p//.rules;
+			If[h =!= 0,  
+				lt = LeadingTerm[h];
+				If[lt[[1]] =!= 1, h = Expand[1/lt[[1]]*h]];
+				AppendTo[G,CreateRedSys[h]];
+				AppendTo[rules,Sequence@@ExtractRules2[{G[[-1]]}]]
+			];
+			i--;
+		,{p,spol}];,i];][[1]];
+		If[info, Print["The reduction took ", t]];
+		count = count + 1;
+		If[info,Print["Iteration ",count, " finished. G has now ", Length[G]," elements"];Print[]];
+		If[count < maxiter,
+			spol = CheckResolvability2[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+			oldlength = Length[G];
+		];
+	];
+	ToNonCommutativeMultiply[ToPoly[G]]
+]
+
+
+CheckResolvability2[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->False,MaxDeg->Infinity,Info->False,Sorted->False,Parallel->True}]]:=
+Module[{amb,spol,info,t1,t2,lists,rules,words,parallel},
+	info = OptionValue[Info];
+	parallel = OptionValue[Parallel];
+
 	words = ExtractReducibleWords[sys];
 	rules = ExtractRules2[sys];
-
+	
 	(*generate ambiguities*)
 	t1 = AbsoluteTiming[
-		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],maxdeg,Parallel->True]
+		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],OptionValue[MaxDeg],Parallel->True]
 	][[1]];
 	If[info,Print[Length[amb]," ambiguities in total (computation took ", t1, ")"]];
 	
-	If[sorted,amb = Sort[amb]];
+	(*process ambiguities*)
+	If[OptionValue[Criterion],
+		amb = DeleteRedundant[amb,Info->info]
+	];
+	If[OptionValue[Sorted],amb = Sort[amb]];
 	
 	(*generate and reduce S-polynomials*)
 	t2 = AbsoluteTiming[
 	If[parallel && Length[amb] > 300,
-		spol = DeleteCases[ParallelMap[SPoly2[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]//.rules &,amb,DistributedContexts->Automatic,Method->"ItemsPerEvaluation" -> 1000],0],
-		spol = DeleteCases[Map[SPoly2[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]//.rules &,amb],0]];
+		spol = DeleteDuplicates[DeleteCases[ParallelMap[SPoly2[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]//.rules &,amb,DistributedContexts->Automatic,Method->"ItemsPerEvaluation" -> 1000],0]],
+		spol = DeleteDuplicates[DeleteCases[Map[SPoly2[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]//.rules &,amb],0]]];
 	][[1]];
 
 	If[info, Print[Length[spol]," different S-polynomials did not reduce to 0 (computation took ",t2,")"]];
@@ -926,31 +903,30 @@ Module[{amb,spol,info,t1,t2,t3,lists,rules,words,sorted,parallel,maxdeg},
 (*Parallelising this function does not make sense. It is faster when executed sequential.*)
 
 
-ExtractRules2[sys:ReductionSystem]:=
-Module[{a,b,h,i,j,m,p,terms},
+ExtractRules2[sys_]:=
+Module[{a,b,i},
 	a=Unique[];b=Unique[];
-	terms = sys[[All,1]];
-	Table[Prod[Pattern[Evaluate[a],BlankNullSequence[]],terms[[i]],Pattern[Evaluate[b],BlankNullSequence[]]]->
-		Prod[a,sys[[i,2]][Sequence@@terms[[i]]],b],{i,Length[terms]}]
+	Table[Prod[Pattern[Evaluate[a],BlankNullSequence[]],i[[1]],Pattern[Evaluate[b],BlankNullSequence[]]]->
+		Prod[a,i[[2]],b],{i,sys}]
 ]
 
 
-ApplyRules[expr_,G_]:= Module[
-{sys},
-	sys = CreateRedSys[G];
-	ToNonCommutativeMultiply[ToProd[expr]//.ExtractRules[sys]]
-]
+ApplyRules[expr_List,G_]:= ApplyRules[#,G]&/@expr
 
 
-(* ::Subsection:: *)
+ApplyRules[expr_,G_]:=
+	ToNonCommutativeMultiply[ToProd[expr]//.ExtractRules[CreateRedSys[G]]]
+
+
+(* ::Subsection::Closed:: *)
 (*Additional stuff*)
 
 
 NormalizePoly[poly_]:= 
-	Expand[1/LeadingTerm[poly][[1]]*poly];
+	Expand[1/LeadingTerm[poly][[1]]*poly]
 
 
-Remainder[poly_, lt:List[__,List[___]]]:=
+Remainder[poly_, lt:{_,_List}]:=
 	poly - lt[[1]]*Prod@@lt[[2]]
 
 
@@ -959,18 +935,17 @@ CreateRedSys[polies_List]:=
 
 
 CreateRedSys[p_]:=
-Module[{m,lt,poly,i},
+Module[{lt,poly},
 	poly = ToProd[p];
 	lt = LeadingTerm[poly];
-	m=Table[Unique[],{Length[lt[[2]]]}];
-	{lt[[2]], Function@@{Evaluate/@m , Expand[-1/lt[[1]]*Remainder[poly,lt]]}//.Table[lt[[2]][[i]] -> m[[i]],{i,Length[m]}] }
+	{lt[[2]], Expand[-1/lt[[1]]*Remainder[poly,lt]]}
 ]
 
 
-ToPoly[poly:{List[__],Function[___]}]:= Prod@@poly[[1]] - poly[[2]][Sequence@@poly[[1]]]
+ToPoly[poly:{_List,_Prod|_Plus|_Times}]:= Prod@@poly[[1]] - poly[[2]]
 
 
-ToPoly[sys:ReductionSystem]:= ToPoly/@sys;
+ToPoly[sys_]:= ToPoly/@sys;
 
 
 Rewrite[spolfactors:List[RepeatedNull[List[RepeatedNull[{__,__,__}]]]],cofactors_,OptionsPattern[InputProd->False]]:= 
@@ -992,7 +967,7 @@ Module[{a,b,i,j,rules,occurring,result,spolfactors,cofactors},
 	];
 	If[OptionValue[InputProd],
 		result//CollectLeft//ExpandLeft,
-		Map[ToNonCommutativeMultiply, result//CollectLeft//ExpandLeft]
+		ToNonCommutativeMultiply[result//CollectLeft//ExpandLeft]
 	]
 ]
 
@@ -1011,7 +986,7 @@ Module[{lc},
 
 
 Interreduce[ideal_,OptionsPattern[{InputProd->False}]]:=
-Module[{G,rules,i,s,gi,cofactors,r,lt,h,sys,a,b,coeff,p,q,newPart},
+Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart},
 	(*set everything up*)
 	G = If[OptionValue[InputProd],
 		ideal,
@@ -1022,7 +997,7 @@ Module[{G,rules,i,s,gi,cofactors,r,lt,h,sys,a,b,coeff,p,q,newPart},
 	coeff = Unique[];
 	rules = ReleaseHold[Table[
 		p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],sys[[i,1]],Pattern[Evaluate[b],BlankNullSequence[]]];
-		q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[i,2]][Sequence@@sys[[i,1]]],Evaluate[b]]];
+		q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[i,2]],Evaluate[b]]];
 		With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]
 	,{i,Length[sys]}]];
 	i = 1; s = Length[G];
@@ -1049,7 +1024,7 @@ Module[{G,rules,i,s,gi,cofactors,r,lt,h,sys,a,b,coeff,p,q,newPart},
 				G[[i]]=gi;
 				sys = CreateRedSys[gi];
 				p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],sys[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
-				q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[2]][Sequence@@sys[[1]]],Evaluate[b]]];
+				q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[2]],Evaluate[b]]];
 				rules[[i]] = ReleaseHold[With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]];
 				i = 1,
 				i++;
@@ -1156,9 +1131,8 @@ QSignature[l_List,Q:Quiver]:= Map[QSignature[#,Q]&,l]
 
 
 QSignature[p_,Q:Quiver]:=
-Module[{monomials,m,results,s,t,i,begin,end,comb,poly,vertices},
-	poly = ToProd[p];
-	monomials = (MonomialList[poly]/.c__*Prod[x___]->Prod[x])/.Prod->List;
+Module[{monomials,m,results,i,begin,end,comb,vertices},
+	monomials = (MonomialList[ToProd[p]]/.c__*Prod[x___]->Prod[x])/.Prod->List;
 	Catch[
 	(*base case: only one mononmial*)
 	If[Length[monomials] === 1,
@@ -1179,7 +1153,7 @@ Module[{monomials,m,results,s,t,i,begin,end,comb,poly,vertices},
 				begin = comb;
 			];
 			Throw[begin],	
-	(*usual case: split polynomial into monomials*)
+			(*usual case: split polynomial into monomials*)
 			results = Map[QSignature[Prod@@#,Q]&,monomials];
 			If[AllTrue[results,# === results[[1]]&],
 				Throw[results[[1]]],
@@ -1194,26 +1168,35 @@ PlotQuiver[Q:Quiver]:=
 	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Certify*)
 
 
 Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
- Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors,k,l,count,assumptionsRed},
+ Module[{info,maxiter,reduced,vars,cofactors,G,assump,claim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors,k,l,count,assumptionsRed},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
 	
 	assumptions = ToProd/@assumptionsInput;
 	
 	(*check compatibility of the assumptions and the claims*)
-	sigAssump = Map[QSignature[#,Q]&,assumptions];
-	If[MemberQ[sigAssump,{}],
-		Print["One of the assumptions is not compatible with the quiver."]; Return[$Failed]];
+	Do[
+		If[QSignature[assump]==={},
+			Print["The assumption ", assump , " is not compatible with the quiver."];
+			Return[$Failed]
+		]
+	,{assump,assumptions}
+	];
+	
 	If[Head[claims] === List,
-		sigClaim = Map[QSignature[#,Q]&,claims];
-		If[MemberQ[sigClaim,{}], Print["One of the claims is not compatible with the quiver."]; Return[$Failed]],
-		sigClaim = QSignature[claims,Q];
-		If[sigClaim === {},
+		Do[
+			If[QSignature[claim]==={},
+				Print["The claim ", claim , " is not compatible with the quiver."];
+				Return[$Failed]
+			]
+		,{claim,claims}
+		],
+		If[QSignature[claims,Q] === {},
 		Print["The claim is not compatible with the quiver."]; Return[$Failed]]
 	];
 	
@@ -1268,15 +1251,15 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	
 	(*rewrite in terms of assumptions and not of the interreduced assumptions*)
 	rules = Table[{k_,assumptionsRed[[i]],l_}->
-		Sequence@@Table[{Prod[k,redCofactors[[i,j,1]]],redCofactors[[i,j,2]],Prod[redCofactors[[i,j,3]],l]},{j,Length[redCofactors[[i]]]}],{i,Length[redCofactors]}];
+		Sequence@@Table[{Prod[k,j[[1]]],j[[2]],Prod[j[[3]],l]},{j,redCofactors[[i]]}],{i,Length[redCofactors]}];
 	certificate = certificate/.rules;
 	(*take care of leading coefficients in the certificate*)
 	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,assumptions];
 	certificate = certificate/.rules;
 	(*convert back to NonCommutativeMultiply*)
 	certificate = If[Head[claims]===List,
-		Map[Map[ToNonCommutativeMultiply,ExpandLeft[CollectLeft[#]],{2}]&,certificate],
-		Map[ToNonCommutativeMultiply,ExpandLeft[CollectLeft[certificate]],{2}]
+		ToNonCommutativeMultiply[Map[ExpandLeft[CollectLeft[#]]&,certificate]],
+		ToNonCommutativeMultiply[ExpandLeft[CollectLeft[certificate]]]
 	];
 	(*return the reduced claims and the linear combinations*)
 	If[info,
