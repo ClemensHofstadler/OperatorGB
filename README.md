@@ -13,7 +13,7 @@ Changes compared to version 1.0.0:
       - What output format?
       - Do this also automatically in Groebner?
  * DeleteRedundant: Delete dedundant ambiguities (Mora's approach)
-  * Got rid of complicated data structure
+  * Got rid of complicated data structure ReductionSystem and cleaned code up
   * Just 4 fun: implemented (terribly slow) F4 
   ---------
   * Compute minimal Groebner basis (Thm. 5.3.10 in PhD thesis)
