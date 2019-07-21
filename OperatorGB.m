@@ -71,7 +71,7 @@ basis computations. Additionally, compatibility with a given quiver is checked."
 (*Begin["`Private`"]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Non-commutative multiplication*)
 
 
@@ -88,7 +88,7 @@ Prod[a___,(d_?CoeffQ)*b_,c___]:=d Prod[a,b,c]
 Prod[a___,b_List,c___]:=Prod[a,Sequence@@b,c]
 
 
-ToProd[poly_]:= Prod[(poly//.NonCommutativeMultiply->Prod)]
+ToProd[poly_]:= Expand[Prod[(poly//.NonCommutativeMultiply->Prod)]]
 
 
 ToNonCommutativeMultiply[poly_]:= poly//.{Prod[]->1, Prod[a_]->Times[a], Prod[a_,b__]->NonCommutativeMultiply[a,b]}
@@ -592,7 +592,42 @@ Module[{a,b,i,j,count,rules,info,occurring},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
+(*Cofactor criterion*)
+
+
+(* ::Text:: *)
+(*Does f divide p?*)
+
+
+Divides[p_,f_,i_]:= 
+Module[{termsP,termsF,x,y},
+	termsP = Map[If[!CoeffQ[#[[1]]],{1,#},#]&,(MonomialList[p]/.Times->List)/.Prod->List];
+	termsF = Map[If[!CoeffQ[#[[1]]],{1,#},#]&,(MonomialList[f]/.Times->List)/.Prod->List];
+	If[MatchQ[termsP,Map[{#[[1]],{x___,Sequence@@#[[2]],y___}}&,termsF]],Print[i];{i},Nothing]
+]
+
+
+CofactorCriterion[spol_,cofactors_]:=
+Module[{cofactorPolies,toDelete,toDelete1, toDelete2, spolTerms,t,t1,t2,spolPolies},
+	t = AbsoluteTiming[
+	spolPolies = spol;
+	cofactorPolies = DeleteDuplicates[Flatten[Map[#/.List->Prod&,cofactors,{2}]]];
+	][[1]];
+	Print["Cofactors to Polies took ", t];	
+	t1 = AbsoluteTiming[
+	MakeMonic[spolPolies];
+	MakeMonic[cofactorPolies];
+	Print["All monic"];
+	toDelete1 = Outer[Divides,spolPolies,cofactorPolies,Range[Length[spol]]];
+	Print["Length[toDelete1] = ", Length[toDelete1]];
+	][[1]];
+	Print["Finding them took ", t1];
+	toDelete1
+]
+
+
+(* ::Subsection::Closed:: *)
 (*F4*)
 
 
@@ -970,7 +1005,7 @@ SetAttributes[MakeMonic,HoldFirst];
 MakeMonic[ideal_]:=
 Module[{lc},
 	lc = (LeadingTerm/@ideal)[[All,1]];
-	ideal = ideal/lc;
+	ideal = Expand[ideal/lc];
 	lc
 ]
 
@@ -1159,7 +1194,7 @@ PlotQuiver[Q:Quiver]:=
 	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Certify*)
 
 
@@ -1236,7 +1271,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 		Sequence@@Table[{Prod[k,redCofactors[[i,j,1]]],redCofactors[[i,j,2]],Prod[redCofactors[[i,j,3]],l]},{j,Length[redCofactors[[i]]]}],{i,Length[redCofactors]}];
 	certificate = certificate/.rules;
 	(*take care of leading coefficients in the certificate*)
-	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],lc[[First[#2]]]*#1,b}&,assumptions];
+	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,assumptions];
 	certificate = certificate/.rules;
 	(*convert back to NonCommutativeMultiply*)
 	certificate = If[Head[claims]===List,
