@@ -19,5 +19,6 @@ Changes compared to version 1.0.0:
       - Improve performance
       - Add tracing of cofactors
   * Discuss F5 criteria
-  * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 25, Criterion: True => 8.5 sec
+  * Got rid of complicated data structure
+  * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 25, Criterion: True, Parallel: False => 7.5 sec
   
