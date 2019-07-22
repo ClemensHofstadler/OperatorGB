@@ -387,16 +387,12 @@ Module[{A,C},
 
 
 SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
-Module[{A,C},
-	C = Sequence@@amb[[2]];
-	A = Sequence@@amb[[3]];
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
-			Prod[fi[[2]],C] - Prod[A,fj[[2]]],
+			Prod[fi[[2]],amb[[2]]] - Prod[amb[[3]],fj[[2]]],
 			(*Inclusion[CBA,C,A]*)
-			fi[[2]] - Prod[C,fj[[2]],A]
+			fi[[2]] - Prod[amb[[2]],fj[[2]],amb[[3]]]
 	]
-]
 
 
 (* ::Subsection::Closed:: *)
@@ -429,7 +425,7 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 	criterion = OptionValue[Criterion];
 
 	If[Head[cofactors]=!=List,cofactors={}];
-
+	
 	G = CreateRedSys[ideal];
 	oldlength = Length[G];
 	t1 = 0; t2 = 0; count = 0;
@@ -469,14 +465,19 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 			oldlength = Length[G];
 		];
 	];
+	
+	G = ToPoly[G];
+	
 	If[OptionValue[Rewrite],
 		If[info, Print["Rewriting the cofactors has started."]];
-		t2 = AbsoluteTiming[RewriteGroebner[cofactors,Info->info,OutputProd->outputProd];][[1]];
+		t2 = AbsoluteTiming[
+			RewriteGroebner[cofactors,Info->info,OutputProd->outputProd];
+		][[1]];
 		If[info, Print["Rewriting the cofactors took in total ", t2]];
 	];
 	If[outputProd,
-		ToPoly[G],
-		ToNonCommutativeMultiply[ToPoly[G]]
+		G,
+		ToNonCommutativeMultiply[G]
 	]
 ]
 
@@ -507,10 +508,12 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	
 	(*generate S-polynomials*)
 	t2 = AbsoluteTiming[
-	If[parallel,
-		spol = DeleteCases[ParallelMap[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],{0,___}],
-		spol = DeleteCases[Map[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb],{0,___}]
-	];		
+	spol = DeleteCases[
+		If[parallel,
+			ParallelMap[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],
+			Map[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb]
+		]
+	,{0,___}];
 	][[1]];
 	If[info,Print["Generating S-polys: ",t2 ," (",Length[spol], " in total)"]];
 	
@@ -557,13 +560,10 @@ Module[{a,b,i,j,count,rules,info,occurring},
 	
 	Monitor[Do[
 		(*only choose those rules which will actually be used*)
-		occurring= Position[cofactors[[;;i,1]],Alternatives@@DeleteDuplicates[cofactors[[i+1,2,All,2]]],{1}];
-
-		rules = Map[{a__,#[[1]],b__} -> Sequence@@Table[{Prod[Evaluate[a],#[[2,j,1]]],#[[2,j,2]],Prod[#[[2,j,3]],Evaluate[b]]},{j,Length[#[[2]]]}]&,Extract[cofactors,occurring]];
-		
+		occurring = Position[cofactors[[;;i,1]],Alternatives@@DeleteDuplicates[cofactors[[i+1,2,All,2]]],{1}];
+		rules = Map[{a__,#[[1]],b__} -> Sequence@@Table[{Prod[Evaluate[a],j[[1]]],j[[2]],Prod[j[[3]],Evaluate[b]]},{j,#[[2]]}]&,Extract[cofactors,occurring]];
 		(*reduce the cofactorlist*)
 		cofactors[[i+1,2]] = cofactors[[i+1,2]]/.rules//CollectLeft//ExpandLeft;
-
 		count = count - 1;
 	,{i,Length[cofactors]-1}];
 	,count];
@@ -608,91 +608,24 @@ Module[{cofactorPolies,toDelete,toDelete1, toDelete2, spolTerms,t,t1,t2,spolPoli
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*F4*)
 
 
-Monomials[f_]:= (MonomialList[f]/.Times[_,a_]->a)/.Prod->List
+SetAttributes[F4,HoldFirst];
 
-
-(* ::Text:: *)
-(*Input format: normal polynomials but in Prod data structure*)
-
-
-SymbolicPreprocessing[L_,G_]:=
-Module[{F,T,lt,g,incl},
-	F = L;
-	T = DeleteDuplicates[Flatten[Monomials/@F,1]];
-	lt = (LeadingTerm/@G)[[All,2]];
-	While[Length[T] > 0,
-		incl = Outer[InclusionF4,T,MapIndexed[{#1,#2[[1]]}&,lt],1]//Flatten;
-		g = Map[Prod[#[[1]],G[[#[[2]]]],#[[3]]]&,incl];
-		F = Join[F,g];
-		T = Complement[DeleteDuplicates[Flatten[Monomials/@g,1]],T];
-	];
-	DeleteDuplicates[F]
-]
-
-
-InclusionF4[v_List,{w_List,j_Integer}]:=
-Module[{k},
-	Reap[If[Length[w]<=Length[v],
-		For[k=1,k+Length[w]-1<=Length[v],k++,
-			If[v[[k;;(k+Length[w]-1)]]===w,
-				Sow[Inclusion[v[[1;;(k-1)]],j,v[[(k+Length[w]);;]]]]
-			]
-		]
-	];
-	][[2]]
-]
-
-
-SetUpMatrix[F_,columns_]:=
-Module[{i,monomials,c,a,m},
-	SparseArray[Reap[Do[
-		monomials = MonomialList[F[[i]]]/.{c_*Prod[a__]->{c,{a}},Prod[a__]->{1,{a}}};
-		Do[
-			Sow[{i,Position[columns,m[[2]]][[1,1]]}->m[[1]]]
-		,{m,monomials}];
-	,{i,Length[F]}
-	]][[2]]//Flatten]
-]
-
-
-Reduction[L_,G_]:=
-Module[{F,M,MRed,FRed,lt,columns,f,FPlus,t1,t2,t3,t4},
-	t1 = AbsoluteTiming[
-	F = SymbolicPreprocessing[L,G];
-	][[1]];
-	Print["Symbolic preprocessing = ", t1];
-	t2 = AbsoluteTiming[
-	lt = (LeadingTerm/@F)[[All,2]];
-	(*sort in descending order*)
-	columns = Reverse[Sort[DeleteDuplicates[Flatten[Monomials/@F,1]],SortedQ]];
-	M = SetUpMatrix[F,columns];
-	][[1]];
-	Print["Set up matrix = ", t2, " (size ", Dimensions[M], ")"];
-	t3 = AbsoluteTiming[
-	MRed = RowReduce[M];
-	FPlus = DeleteCases[MRed.(ToProd/@columns),0];
-	][[1]];
-	Print["Computing row echelon form = ", t3];
-	Select[FPlus,!MemberQ[lt,LeadingTerm[#][[2]]]&]
-]
-
-
-F4[ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->50,Criterion->False,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
-Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,outputProd,n},
+F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->50,Criterion->False,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
+Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactorsL,lc,a,b,rules},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
 	parallel = OptionValue[Parallel];
 	maxdeg = OptionValue[MaxDeg];
-	outputProd = OptionValue[OutputProd];
+	
+	cofactors = {};
 
 	G = ToProd/@ideal;
-	MakeMonic[G];
-	G = Interreduce[G,InputProd->True][[1]];
-	
+	lc = MakeMonic[G];
+
 	oldlength = Length[G];
 	t1 = 0; t2 = 0; count = 0;
 	If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
@@ -704,8 +637,10 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,outputProd,n
 		Monitor[While[Length[spol]\[NonBreakingSpace]> 0,
 			(*pick some S-polynomials and reduce them*)
 			n = Min[OptionValue[N],Length[spol]];
-			G = Join[G,Reduction[spol[[;;n]],G]];
+			{L,cofactorsL}=Reduction[spol[[;;n]],G];
 			spol = Drop[spol,n];
+			G = Join[G,L];
+			cofactors = Join[cofactors,MapThread[{#1,#2}&,{L,cofactorsL}]];
 		];
 		,Length[spol]];][[1]];
 		
@@ -719,23 +654,91 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,outputProd,n
 			oldlength = Length[G];
 		];
 	];
+	
+	If[info, Print["Rewriting the cofactors has started."]];
+	t2 = AbsoluteTiming[
+	(*take care of leading coefficients*)
+	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,G[[;;Length[ideal]]]];
+	cofactors = cofactors/.rules;
+	RewriteGroebner[cofactors,Info->info];
+	][[1]];
+	If[info, Print["Rewriting the cofactors took in total ", t2]];
+
 	ToNonCommutativeMultiply[G]
 ]
 
 
+(* ::Subsubsection:: *)
+(*Symbolic Preprocessing & Reduction*)
+
+
+SetAttributes[SymbolicPreprocessing,HoldFirst]
+
+SymbolicPreprocessing[cofactorsF_,L_,G_]:=
+Module[{F,T,lt,g,rules,a,b},
+	F = L;
+	T = DeleteDuplicates[Flatten[Monomials/@F,1]];
+	lt = (LeadingTerm/@G)[[All,2]];
+	rules = Table[With[{x = i},{a___,Sequence@@lt[[i]],b___}:>(AppendTo[cofactorsF,{Prod[a],G[[x]],Prod[b]}];Prod[a,G[[x]],b])],{i,Length[G]}];
+	While[Length[T] > 0,
+		g = DeleteCases[T/.rules,_List];
+		F = Join[F,g];
+		T = Complement[DeleteDuplicates[Flatten[Monomials/@g,1]],T];
+	];
+	lt = MakeMonic[F];
+	cofactorsF = MapIndexed[{#1[[1]]/lt[[#2[[1]]]],#1[[2]],#1[[3]]}&,cofactorsF];
+	cofactorsF = DeleteDuplicatesBy[cofactorsF,Prod[#]&];
+	DeleteDuplicates[F]
+]
+
+
+Reduction[L_,G_]:=
+Module[{F,M,lt,columns,FPlus,a,ct1,t2,t3,t4,cofactorsF,A,cofactors,pos},
+	t1 = AbsoluteTiming[
+	cofactorsF = L[[All,2]];
+	F = SymbolicPreprocessing[cofactorsF,L[[All,1]],G];
+	][[1]];
+	
+	t2 = AbsoluteTiming[
+	lt = (LeadingTerm/@F)[[All,2]];
+	(*sort in descending order*)
+	columns = Reverse[Sort[DeleteDuplicates[Flatten[Monomials/@F,1]],SortedQ]];
+	M = SparseArray[Flatten[MapIndexed[#1/.{Plus->List,c_*Prod[a___]->({#2[[1]],{a}}->c),Prod[a___]->({#2[[1]],{a}}->1)}&,F]/.MapIndexed[#1->#2[[1]]&,columns]]];
+	][[1]];
+	
+	t3 = AbsoluteTiming[
+	{A,M} = HermiteDecomposition[M];
+	FPlus = DeleteCases[M.(ToProd/@columns),0];
+	][[1]];
+	
+	t4 = AbsoluteTiming[
+	cofactors = Map[(Table[{#[[i]]*cofactorsF[[i,1]],cofactorsF[[i,2]],cofactorsF[[i,3]]},{i,Length[F]}]//ExpandLeft)&,A];
+	cofactors = DeleteCases[cofactors,{}];
+	pos = Position[FPlus,p_/;!MemberQ[lt,LeadingTerm[p][[2]]],{1},Heads->False]; 
+	][[1]];
+	Print["SymPre: ", t1,", Setup: ", t2, ", RRed: ", t3, ", Cofactor stuff: ", t4];
+	{Extract[FPlus,pos],Extract[cofactors,pos]}
+]
+
+
+(* ::Subsubsection:: *)
+(*Additional stuff*)
+
+
+Monomials[f_]:= (MonomialList[f]/.Times[_,a_]->a)/.Prod->List
+
+
+(* ::Text:: *)
+(*Input format: normal polynomials but in Prod data structure*)
+
+
 SPolyF4[amb:_Overlap|_Inclusion,fi_,fj_]:=
-Module[{A,C},
-
-	C = Sequence@@amb[[2]];
-	A = Sequence@@amb[[3]];
-
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
-			Sequence@@{Prod[fi,C],Prod[A,fj]},
+			Sequence@@{{Prod[fi,amb[[2]]],{Prod[],fi,Prod[amb[[2]]]}},{Prod[amb[[3]],fj],{Prod[amb[[3]]],fj,Prod[]}}},
 			(*Inclusion[CBA,C,A]*)
-			Sequence@@{fi,Prod[C,fj,A]}
+			Sequence@@{{fi,{Prod[],fi,Prod[]}},{Prod[amb[[2]],fj,amb[[3]]],{Prod[amb[[2]]],fj,Prod[amb[[3]]]}}}
 	]
-]
 
 
 CheckResolvabilityF4[G_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->False,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
@@ -752,7 +755,6 @@ Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],maxdeg,Parallel->parallel];
 	][[1]];
 	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
-	
 	If[OptionValue[Criterion],
 		amb = DeleteRedundant[amb,Info->info]
 	];
@@ -760,14 +762,12 @@ Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 	
 	(*generate S-polynomials*)
 	t2 = AbsoluteTiming[
-	spol = DeleteDuplicates[DeleteCases[
 		If[parallel,
 			spol = ParallelMap[SPolyF4[#,G[[#[[4,1]]]],G[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],
 			spol = Map[SPolyF4[#,G[[#[[4,1]]]],G[[#[[4,2]]]]]&,amb]
-		]
-	,0]];		
+		];		
 	][[1]];
-	MakeMonic[spol];
+	spol = DeleteDuplicatesBy[spol,First];
 	If[info,Print["Generating S-polys: ",t2]];
 	If[info, Print[Length[spol]," critical polynomials were generated."]];
 	spol
