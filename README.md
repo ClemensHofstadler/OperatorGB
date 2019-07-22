@@ -14,12 +14,11 @@ Changes compared to version 1.0.0:
       - Do this also automatically in Groebner?
  * DeleteRedundant: Delete dedundant ambiguities (Mora's approach)
   * Got rid of complicated data structure ReductionSystem and cleaned code up
-  * Just 4 fun: implemented (terribly slow) F4 
+  * Just 4 fun: implemented (terribly slow) F4 that can trace cofactors
   ---------
   * Compute minimal Groebner basis (Thm. 5.3.10 in PhD thesis)
   * F4:
       - Improve performance
-      - Add tracing of cofactors
   * Discuss F5 criteria
   * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 25, Criterion: True, Parallel: False => 7 sec
   
