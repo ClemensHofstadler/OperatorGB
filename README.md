@@ -20,5 +20,5 @@ Changes compared to version 1.0.0:
   * F4:
       - Improve performance
   * Discuss F5 criteria
-  * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 25, Criterion: True, Parallel: False => 7 sec
+  * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 15, Criterion: True, Parallel: False => 5 sec
   
