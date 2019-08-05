@@ -308,27 +308,27 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 (*Approach from the PhD Thesis*)
 
 
+Transform[Inclusion[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[wi,wj,{},{},i]
+Transform[Inclusion[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[{},{},wi,wj,j]
+Transform[Overlap[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[{},wi,wj,{},i]
+Transform[Overlap[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[wj,{},{},wi,j]
+
+
 DeleteRedundantPhD[amb_List]:= 
-Module[{Os,B={},pairs,toDelete,rules,i,j,wi,wj,k},
+Module[{Os,B={},pairs,selected,f,i,j,wi,wj,k},
 	Do[
-		Os = Select[amb,#[[4,2]]===k&];
-		pairs = Subsets[Os,{2}];
+		selected = Transform[#,k]&/@Select[amb,Max[#[[4]]]===k&];
+		While[Length[selected] > 0,
+			f = First[selected];
+			AppendTo[Os,f];
+			(*selected = DeleteCases[selected,Alternatives@@(Obstruction[
+			MemberQ[
+			*)
 	
-		toDelete = Map[(#/.{{Inclusion[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i===j && wi!=wj) -> If[SortedQ[wj,wi],#[[1]],#[[2]]],
-							{Inclusion[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i=!=j) -> If[i > j,#[[1]],#[[2]]],
-							{Overlap[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i===j && wi !=wj) -> If[SortedQ[wj,wi],#[[1]],#[[2]]],
-							{Overlap[_,wi_,_,{i_,_}],Inclusion[_,wj_,_,{j_,_}]}/; (i=!=j) -> If[i > j,#[[1]],#[[2]]],
-							
-							#->Nothing}
-		
-		)&,pairs];
-			
-		Os = DeleteCases[Os,Alternatives@@toDelete];
-		If[Length[toDelete] > 0,
-			Print["Removing ", Length[toDelete], " ambiguities..."]
-		];
-		B = Join[B,Os];
-	,{k,Max[amb[[All,4,2]]]}];
+		]
+	,{k,Max[amb[[All,4,2]]]}
+	];
+	B = Join[B,Os];
 	B
 ]
 
@@ -608,13 +608,13 @@ Module[{cofactorPolies,toDelete,toDelete1, toDelete2, spolTerms,t,t1,t2,spolPoli
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*F4*)
 
 
 SetAttributes[F4,HoldFirst];
 
-F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->50,Criterion->False,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
+F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->False,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
 Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactorsL,lc,a,b,rules},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -693,35 +693,39 @@ Module[{F,T,lt,g,rules,a,b},
 
 
 Reduction[L_,G_]:=
-Module[{F,M,lt,columns,FPlus,a,ct1,t2,t3,t4,cofactorsF,A,cofactors,pos},
+Module[{F,M,lt,columns,FPlus,a,c,t1,t2,t3,t4,cofactorsF,A,cofactors,pos,f,rule},
 	t1 = AbsoluteTiming[
 	cofactorsF = L[[All,2]];
 	F = SymbolicPreprocessing[cofactorsF,L[[All,1]],G];
 	][[1]];
 	
 	t2 = AbsoluteTiming[
-	lt = (LeadingTerm/@F)[[All,2]];
-	(*sort in descending order*)
-	columns = Reverse[Sort[DeleteDuplicates[Flatten[Monomials/@F,1]],SortedQ]];
-	M = SparseArray[Flatten[MapIndexed[#1/.{Plus->List,c_*Prod[a___]->({#2[[1]],{a}}->c),Prod[a___]->({#2[[1]],{a}}->1)}&,F]/.MapIndexed[#1->#2[[1]]&,columns]]];
+		lt = (LeadingTerm/@F)[[All,2]];
+		(*sort in descending order*)
+		columns = Reverse[Sort[DeleteDuplicates[Flatten[Monomials/@F,1]],SortedQ]];
+		M = SparseArray[Flatten[MapIndexed[#1/.{Plus->List,c_*Prod[a___]->({#2[[1]],{a}}->c),Prod[a___]->({#2[[1]],{a}}->1)}&,F]/.MapIndexed[#1->#2[[1]]&,columns]]];
 	][[1]];
 	
 	t3 = AbsoluteTiming[
-	{A,M} = HermiteDecomposition[M];
-	FPlus = DeleteCases[M.(ToProd/@columns),0];
+		{A,M} = HermiteDecomposition[M];
+		FPlus = DeleteCases[M.(ToProd/@columns),0];
 	][[1]];
 	
 	t4 = AbsoluteTiming[
-	cofactors = Map[(Table[{#[[i]]*cofactorsF[[i,1]],cofactorsF[[i,2]],cofactorsF[[i,3]]},{i,Length[F]}]//ExpandLeft)&,A];
-	cofactors = DeleteCases[cofactors,{}];
-	pos = Position[FPlus,p_/;!MemberQ[lt,LeadingTerm[p][[2]]],{1},Heads->False]; 
+		cofactors = Map[{}&,cofactorsF];
+		Do[
+			f = cofactorsF[[rule[[1,2]]]];
+			AppendTo[cofactors[[rule[[1,1]]]],{rule[[2]]*f[[1]],f[[2]],f[[3]]}];
+			,{rule,ArrayRules[A][[;;-2]]}
+		];
+		pos = Position[FPlus,p_/;!MemberQ[lt,LeadingTerm[p][[2]]],{1},Heads->False]; 
 	][[1]];
 	Print["SymPre: ", t1,", Setup: ", t2, ", RRed: ", t3, ", Cofactor stuff: ", t4];
 	{Extract[FPlus,pos],Extract[cofactors,pos]}
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*Additional stuff*)
 
 
@@ -735,9 +739,15 @@ Monomials[f_]:= (MonomialList[f]/.Times[_,a_]->a)/.Prod->List
 SPolyF4[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
-			Sequence@@{{Prod[fi,amb[[2]]],{Prod[],fi,Prod[amb[[2]]]}},{Prod[amb[[3]],fj],{Prod[amb[[3]]],fj,Prod[]}}},
+			If[Prod[fi,amb[[2]]] === Prod[amb[[3]],fj], 
+				Sequence@@{},
+				Sequence@@{{Prod[fi,amb[[2]]],{Prod[],fi,Prod[amb[[2]]]}},{Prod[amb[[3]],fj],{Prod[amb[[3]]],fj,Prod[]}}}
+			],
 			(*Inclusion[CBA,C,A]*)
-			Sequence@@{{fi,{Prod[],fi,Prod[]}},{Prod[amb[[2]],fj,amb[[3]]],{Prod[amb[[2]]],fj,Prod[amb[[3]]]}}}
+			If[fi === Prod[amb[[2]],fj,amb[[3]]], 
+				Sequence@@{},
+				Sequence@@{{fi,{Prod[],fi,Prod[]}},{Prod[amb[[2]],fj,amb[[3]]],{Prod[amb[[2]]],fj,Prod[amb[[3]]]}}}
+			]
 	]
 
 
@@ -767,7 +777,6 @@ Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 			spol = Map[SPolyF4[#,G[[#[[4,1]]]],G[[#[[4,2]]]]]&,amb]
 		];		
 	][[1]];
-	spol = DeleteDuplicatesBy[spol,First];
 	If[info,Print["Generating S-polys: ",t2]];
 	If[info, Print[Length[spol]," critical polynomials were generated."]];
 	spol
