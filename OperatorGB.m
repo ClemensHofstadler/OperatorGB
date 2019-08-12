@@ -359,7 +359,7 @@ Module[{selected,i,amb,result,f,t},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*S-Polynomials*)
 
 
@@ -395,7 +395,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Gr\[ODoubleDot]bner basis*)
 
 
@@ -624,7 +624,7 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactor
 	cofactors = {};
 
 	G = ToProd/@ideal;
-	lc = MakeMonic[G];
+	MakeMonic[G];
 
 	oldlength = Length[G];
 	t1 = 0; t2 = 0; count = 0;
@@ -654,16 +654,12 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactor
 			oldlength = Length[G];
 		];
 	];
-	
+
 	If[info, Print["Rewriting the cofactors has started."]];
 	t2 = AbsoluteTiming[
-	(*take care of leading coefficients*)
-	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,G[[;;Length[ideal]]]];
-	cofactors = cofactors/.rules;
-	RewriteGroebner[cofactors,Info->info];
+		RewriteGroebner[cofactors,Info->info];
 	][[1]];
 	If[info, Print["Rewriting the cofactors took in total ", t2]];
-
 	ToNonCommutativeMultiply[G]
 ]
 
@@ -674,16 +670,18 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactor
 
 SetAttributes[SymbolicPreprocessing,HoldFirst]
 
-SymbolicPreprocessing[cofactorsF_,L_,G_]:=
-Module[{F,T,lt,g,rules,a,b},
+SymbolicPreprocessing[{cofactorsF_,columns_},L_,G_]:=
+Module[{F,T,lt,g,rules,a,b,newTerms},
 	F = L;
-	T = DeleteDuplicates[Flatten[Monomials/@F,1]];
+	T = Complement[DeleteDuplicates[Flatten[Monomials/@F,1]],columns];
 	lt = (LeadingTerm/@G)[[All,2]];
 	rules = Table[With[{x = i},{a___,Sequence@@lt[[i]],b___}:>(AppendTo[cofactorsF,{Prod[a],G[[x]],Prod[b]}];Prod[a,G[[x]],b])],{i,Length[G]}];
 	While[Length[T] > 0,
+		columns = Join[columns,T];
 		g = DeleteCases[T/.rules,_List];
 		F = Join[F,g];
-		T = Complement[DeleteDuplicates[Flatten[Monomials/@g,1]],T];
+		newTerms = DeleteDuplicates[Flatten[Monomials/@g,1]];
+		T = Complement[newTerms,columns];
 	];
 	lt = MakeMonic[F];
 	cofactorsF = MapIndexed[{#1[[1]]/lt[[#2[[1]]]],#1[[2]],#1[[3]]}&,cofactorsF];
@@ -696,13 +694,14 @@ Reduction[L_,G_]:=
 Module[{F,M,lt,columns,FPlus,a,c,t1,t2,t3,t4,cofactorsF,A,cofactors,pos,f,rule},
 	t1 = AbsoluteTiming[
 	cofactorsF = L[[All,2]];
-	F = SymbolicPreprocessing[cofactorsF,L[[All,1]],G];
+	columns = DeleteDuplicates[(LeadingTerm/@L[[All,1]])[[All,2]]];
+	F = SymbolicPreprocessing[{cofactorsF,columns},L[[All,1]],G];
 	][[1]];
 	
 	t2 = AbsoluteTiming[
 		lt = (LeadingTerm/@F)[[All,2]];
 		(*sort in descending order*)
-		columns = Reverse[Sort[DeleteDuplicates[Flatten[Monomials/@F,1]],SortedQ]];
+		columns = Reverse[Sort[columns,SortedQ]];
 		M = SparseArray[Flatten[MapIndexed[#1/.{Plus->List,c_*Prod[a___]->({#2[[1]],{a}}->c),Prod[a___]->({#2[[1]],{a}}->1)}&,F]/.MapIndexed[#1->#2[[1]]&,columns]]];
 	][[1]];
 	
@@ -725,7 +724,7 @@ Module[{F,M,lt,columns,FPlus,a,c,t1,t2,t3,t4,cofactorsF,A,cofactors,pos,f,rule},
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*Additional stuff*)
 
 
@@ -823,7 +822,7 @@ Module[{i,t,rules},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Gr\[ODoubleDot]bner basis without cofactors*)
 
 
@@ -932,7 +931,7 @@ ApplyRules[expr_,G_]:=
 	ToNonCommutativeMultiply[ToProd[expr]//.ExtractRules[CreateRedSys[G]]]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Additional stuff*)
 
 
@@ -957,6 +956,9 @@ Module[{lt,poly},
 
 
 ToPoly[poly:{_List,_Prod|_Plus|_Times}]:= Prod@@poly[[1]] - poly[[2]]
+
+
+ToPoly[poly:{_List,0}]:= Prod@@poly[[1]]
 
 
 ToPoly[sys_]:= ToPoly/@sys;
@@ -1187,33 +1189,28 @@ PlotQuiver[Q:Quiver]:=
 
 
 Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
- Module[{info,maxiter,reduced,vars,cofactors,G,assump,claim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors,k,l,count,assumptionsRed},
+ Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors,k,l,count,assumptionsRed},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
 	
 	assumptions = ToProd/@assumptionsInput;
-	
+
 	(*check compatibility of the assumptions and the claims*)
-	Do[
-		If[QSignature[assump]==={},
-			Print["The assumption ", assump , " is not compatible with the quiver."];
-			Return[$Failed]
-		]
-	,{assump,assumptions}
+	sigAssump = Map[QSignature[#,Q]&,assumptions];
+	If[MemberQ[sigAssump,{}],
+		Print["The assumption ", Extract[assumptions,Position[sigAssump,{}][[1,1]]]," is not compatible with the quiver."]; Return[$Failed]
 	];
-	
 	If[Head[claims] === List,
-		Do[
-			If[QSignature[claim]==={},
-				Print["The claim ", claim , " is not compatible with the quiver."];
-				Return[$Failed]
-			]
-		,{claim,claims}
+		sigClaim = Map[QSignature[#,Q]&,claims];
+		If[MemberQ[sigClaim,{}], 
+			Print["The claim ", Extract[claims,Position[sigClaim,{}][[1,1]]]," is not compatible with the quiver."]; Return[$Failed]	
 		],
-		If[QSignature[claims,Q] === {},
-		Print["The claim is not compatible with the quiver."]; Return[$Failed]]
+		sigClaim = QSignature[claims,Q];
+		If[sigClaim === {},
+			Print["The claim ", claims, " is not compatible with the quiver."]; Return[$Failed]
+		]
 	];
-	
+
 	(*set up the ring*)
 	Print["Using the following monomial ordering:"];
 	If[OptionValue[MultiLex],
