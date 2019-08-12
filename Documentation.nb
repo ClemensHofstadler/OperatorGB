@@ -1,0 +1,2112 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 10.2' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[     91502,       2104]
+NotebookOptionsPosition[     80035,       1933]
+NotebookOutlinePosition[     80629,       1956]
+CellTagsIndexPosition[     80542,       1951]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell["\<\
+To load the functionality for verifying operator identities via \
+noncommutative Groebner basis computations, just load the OperatorGB package. \
+This can be done by the following command, provided that the file \
+OperatorGB.m and this file are located in the same directory:\
+\>", "Text",
+ CellChangeTimes->{{3.747316026136818*^9, 3.7473161606635647`*^9}, {
+   3.747320869338266*^9, 3.7473208706424723`*^9}, {3.747553465869638*^9, 
+   3.747553468902692*^9}, {3.748255878152676*^9, 3.748255928740477*^9}, {
+   3.758528903154957*^9, 3.758528903718858*^9}, {3.758528953969285*^9, 
+   3.7585289706462183`*^9}, {3.7602128703837843`*^9, 3.760212871220481*^9}, {
+   3.761902990480318*^9, 3.761903000946623*^9}, {3.765268190832427*^9, 
+   3.765268215437492*^9}, {3.766305467126068*^9, 3.766305468869985*^9}, 
+   3.766306509513694*^9, {3.774628977877489*^9, 
+   3.774629011115562*^9}},ExpressionUUID->"e69b07d1-3a0b-4dc0-a85b-\
+30745c7dcbe7"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"SetDirectory", "[", 
+   RowBox[{"NotebookDirectory", "[", "]"}], "]"}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{"<<", "OperatorGB.m"}]}], "Input",
+ CellChangeTimes->{{3.74731601179121*^9, 3.747316016009241*^9}, 
+   3.747557276651844*^9, {3.758528915394726*^9, 3.758528929516244*^9}, 
+   3.758529202325181*^9, {3.760214131808613*^9, 3.76021413226658*^9}, {
+   3.760214265755966*^9, 3.760214265947254*^9}, {3.761902985369814*^9, 
+   3.7619029864049873`*^9}, {3.765268218275144*^9, 3.765268220331843*^9}, {
+   3.766333112293096*^9, 3.766333114037428*^9}, {3.766333394084763*^9, 
+   3.766333405912856*^9}, {3.766334260119739*^9, 3.766334261800551*^9}, {
+   3.766672643055078*^9, 3.766672656908544*^9}, 3.774628972032526*^9},
+ CellLabel->"In[1]:=",ExpressionUUID->"396554f2-5318-4777-944c-bbbece7b42c6"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["\<\"Package OperatorGB version 1.0.1\\nCopyright 2019, \
+Institute of Algebra, JKU\\nwritten by Clemens Hofstadler\"\>"], "Print",
+ CellChangeTimes->{
+  3.765270872355678*^9, 3.765271227754319*^9, 3.766306573750606*^9, 
+   3.766314415069256*^9, 3.766314488034985*^9, {3.7663292436768208`*^9, 
+   3.7663292531282673`*^9}, 3.7663297845957003`*^9, 3.766332709309698*^9, 
+   3.766333036172838*^9, 3.766333406691802*^9, 3.766672662897407*^9, 
+   3.766673208439886*^9, 3.774629028228489*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"5530b3f3-d94f-410c-b635-63cd49926735"],
+
+Cell[BoxData["\<\"A few definitions need to be made by the user. Type \
+?SetUpRing for more information.\"\>"], "Print", "PrintUsage",
+ CellChangeTimes->{3.774629028378491*^9},
+ CellTags->
+  "Info23774636228-7628232",ExpressionUUID->"37527912-c77b-42d7-8306-\
+a9f2f55b342e"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[TextData[{
+ "We will illustrate the functionality of the package and its usage on a \
+concrete example. Therefore, we assume that we are given two linear operators \
+A and B, with A having codomain V and domain W and B having codomain U and \
+domain V. Furthermore, we are given inner inverses of A and B denoted by ",
+ Cell[BoxData[
+  FormBox[
+   SuperscriptBox["A", "-"], TraditionalForm]],ExpressionUUID->
+  "3f278823-d7fa-4c54-b389-fbc1774edd6e"],
+ " and ",
+ Cell[BoxData[
+  FormBox[
+   SuperscriptBox["B", "-"], TraditionalForm]],ExpressionUUID->
+  "2746b969-ceba-4905-9f30-04571371241b"],
+ ", respectively, i.e. operators satisfying ",
+ Cell[BoxData[
+  FormBox[
+   SuperscriptBox["AA", "-"], TraditionalForm]],ExpressionUUID->
+  "4f6b25f7-7480-4b72-bd4c-73814bce8f59"],
+ "A = A and ",
+ Cell[BoxData[
+  FormBox[
+   SuperscriptBox["BB", "-"], TraditionalForm]],ExpressionUUID->
+  "caf5d27d-1fdd-4f81-9e6f-444b9af9eb3f"],
+ "B = B.\n\nWe want to prove the reverse order law which, in this case, reads \
+as follows:\n\n\t\t\t\t\t\t\t",
+ Cell[BoxData[
+  FormBox[
+   RowBox[{
+    SuperscriptBox["ABB", 
+     RowBox[{"-", " "}]], 
+    SuperscriptBox["A", "-"], "AB"}], TraditionalForm]],ExpressionUUID->
+  "927f4f1d-2ae2-4e12-b644-149ce4bad525"],
+ " = AB.\n\t\t\t\t\t\t\t\nTo prove this statement, we will need an additional \
+assumption on A, B, ",
+ Cell[BoxData[
+  FormBox[
+   SuperscriptBox["A", "-"], TraditionalForm]],ExpressionUUID->
+  "2c370538-2c82-4d46-be7d-0b525a0aaef7"],
+ " and ",
+ Cell[BoxData[
+  FormBox[
+   SuperscriptBox["B", "-"], TraditionalForm]],ExpressionUUID->
+  "c4b11588-ccff-46b3-9ab7-398d053b433a"],
+ ", which is that the operator ",
+ Cell[BoxData[
+  RowBox[{
+   SuperscriptBox["A", "-"], 
+   SuperscriptBox["ABB", "-"]}]],
+  CellChangeTimes->{{3.766228419977517*^9, 3.7662284251569633`*^9}},
+  ExpressionUUID->"be33a7d0-cadf-48e7-b072-7ae09c1a5af3"],
+ " is idempotent. This means ",
+ Cell[BoxData[
+  RowBox[{
+   RowBox[{
+    SuperscriptBox["A", "-"], 
+    SuperscriptBox["ABB", "-"], 
+    SuperscriptBox["A", "-"], 
+    SuperscriptBox["ABB", "-"]}], "=", 
+   RowBox[{
+    SuperscriptBox["A", "-"], 
+    SuperscriptBox["ABB", "-"]}]}]],
+  CellChangeTimes->{{3.766228419977517*^9, 3.7662284251569633`*^9}},
+  ExpressionUUID->"e98956ad-73d8-4226-96f8-c054d511d4f5"],
+ ".\n\nTo prove such operator identities, the equations first have to be \
+translated  into (noncommutative) polynomials. To do this, the user has to \
+set up a corresponding noncommutative polynomial ring first. This is done by \
+providing a list of all variables that the ring shall contain. For our \
+example, we will set up a noncommutative polynomial ring in the variables  ",
+ Cell[BoxData[
+  RowBox[{"a", ",", 
+   SuperscriptBox["a", "-"], ",", "b", ",", 
+   SuperscriptBox["b", "-"]}]],
+  CellChangeTimes->{{3.766315123874672*^9, 3.766315135036592*^9}},
+  ExpressionUUID->"e54e8461-67cf-4b64-924f-b194e9c614b1"],
+ "."
+}], "Text",
+ CellChangeTimes->CompressedData["
+1:eJxTTMoPSmViYGAQAWIQ3S4+wbrg9WvHNac+uIFovsl+viB6nVxyCIhuuNAf
+DaKPdFvEgGghlnjTywxvHDk2nDMD0e+mmTuC6DNz7MF01tSvE9hY3jhGVzbN
+BtG/Nuas4gTSZrFTwfTd8xs2O7G/cWT7/xxM93wSfbCW943jiVeRT0H0g8mu
+3OuAtFj7ExMQ/YCvLxZEBzwWSgPRLVx9WSA6ZEtPDYi+PrWvGUSriWt0gGgj
+5sz4FfxvHDfxmiSC6BS+6VNBdEm+3jwQrVy+fRGIDvj39j6I1jt7dtoWIP2F
+7cVqED0h880GEG021XUTiH5UVcezDUi/kyjnA9HzlMMvRAsA9bXpXwPRAIaI
+nEM=
+  "],ExpressionUUID->"0c4a58ef-abe0-488c-96b0-c7dba93c1c86"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"SetUpRing", "[", 
+  RowBox[{"{", 
+   RowBox[{"a", ",", 
+    SuperscriptBox["a", "-"], ",", "b", ",", 
+    SuperscriptBox["b", "-"]}], "}"}], "]"}]], "Input",
+ CellChangeTimes->{{3.760206781786055*^9, 3.7602067922627697`*^9}, {
+  3.765268905540434*^9, 3.76526891070177*^9}, {3.765269571265348*^9, 
+  3.765269571877762*^9}, {3.766306549060968*^9, 3.766306571071745*^9}, {
+  3.766314494366828*^9, 3.7663144987510557`*^9}},
+ CellLabel->"In[3]:=",ExpressionUUID->"73d5142e-3d4b-4923-80f1-fd884e78d5e4"],
+
+Cell[BoxData["\<\"\\!\\(\\*RowBox[{\\\"a\\\"}]\\) < \
+\\!\\(\\*SuperscriptBox[\\\"a\\\", \\\"-\\\"]\\) < \
+\\!\\(\\*RowBox[{\\\"b\\\"}]\\) < \\!\\(\\*SuperscriptBox[\\\"b\\\", \
+\\\"-\\\"]\\)\"\>"], "Print",
+ CellChangeTimes->{
+  3.766306576683708*^9, 3.766314419413649*^9, {3.766314491941437*^9, 
+   3.766314499402405*^9}, 3.76632926173368*^9, 3.7663297884350643`*^9, 
+   3.7663330564940977`*^9, 3.76633364403358*^9, 3.766672701275255*^9, 
+   3.7746290318056927`*^9},
+ CellLabel->
+  "During evaluation of \
+In[3]:=",ExpressionUUID->"71420bdf-81e2-4179-a506-158d55859dbe"]
+}, Open  ]],
+
+Cell[TextData[{
+ "The monomial order in this polynomial ring is predefined to be graded \
+lexicographic, where the variables are ordered in ascending order \
+corresponding to the input list of the SetUpRing method. Hence, in our case, \
+we get  ",
+ Cell[BoxData[
+  RowBox[{"a", "<", 
+   SuperscriptBox["a", "-"], "<", "b", "<", 
+   SuperscriptBox["b", "-"]}]],
+  CellChangeTimes->{{3.766315123874672*^9, 3.766315135036592*^9}},
+  ExpressionUUID->"2c8f62d3-3145-4eaa-91f3-337761a62e3c"],
+ "."
+}], "Text",
+ CellChangeTimes->{{3.747316633680142*^9, 3.747316694955545*^9}, {
+  3.747316728407188*^9, 3.747316734078998*^9}, {3.747316897941448*^9, 
+  3.747317242659684*^9}, {3.747318353795086*^9, 3.7473183542360373`*^9}, {
+  3.747553546048976*^9, 3.747553552739972*^9}, {3.760207095372498*^9, 
+  3.760207182331846*^9}, {3.760207228538595*^9, 3.7602072294041653`*^9}, {
+  3.760214545204153*^9, 3.760214556264204*^9}, {3.7652689217735367`*^9, 
+  3.765268930812305*^9}, {3.765269593145608*^9, 3.765269594690508*^9}, {
+  3.766314512338232*^9, 3.76631462092834*^9}, {3.766315230261176*^9, 
+  3.766315236356146*^9}, {3.7663292737528343`*^9, 
+  3.766329274902349*^9}},ExpressionUUID->"8af3bfec-134d-458f-9410-\
+05d39e9854c3"],
+
+Cell["\<\
+The user has the option to change the monomial order. The second pre-defined \
+order is a weighted graded lexicographic order. To switch to this order, the \
+user has execute the command\
+\>", "Text",
+ CellChangeTimes->{{3.747317308702943*^9, 3.7473173557382317`*^9}, {
+  3.760207187122593*^9, 3.7602072094266663`*^9}, {3.760207254173959*^9, 
+  3.760207256306119*^9}, {3.7652689471721973`*^9, 3.765268949203657*^9}, {
+  3.766314558641551*^9, 
+  3.766314559870551*^9}},ExpressionUUID->"0bc9d951-04e2-4d23-baa6-\
+b7485d72e561"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"SortedQ", " ", "=", " ", "WeightedDegLex"}], ";"}]], "Input",
+ CellChangeTimes->{{3.747317360492379*^9, 3.747317369909688*^9}, 
+   3.7473174834034853`*^9, 3.747553573873342*^9},
+ CellLabel->"In[22]:=",ExpressionUUID->"b551d9f4-41fb-4229-9863-f62fdbae0795"],
+
+Cell["\<\
+Then, additionally, a list of weights {w1,w2,...} named Weight has to be \
+provided, where w1 corresponds to the weight of the first variable in the \
+input list of SetUpRing, w2 to the second one and so on.\
+\>", "Text",
+ CellChangeTimes->{{3.747317378735477*^9, 3.747317420054785*^9}, {
+  3.747553585108239*^9, 3.74755359223864*^9}, {3.747553712943514*^9, 
+  3.747553717751996*^9}, {3.760207295446384*^9, 
+  3.7602073453939247`*^9}},ExpressionUUID->"bcc38410-0408-4621-bf1c-\
+aef5697405e0"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"Weight", " ", "=", " ", 
+   RowBox[{"{", 
+    RowBox[{"5", ",", "5", ",", "1", ",", "3"}], "}"}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.747317423856154*^9, 3.747317430857638*^9}, {
+  3.758529091354418*^9, 3.758529093221719*^9}, {3.758529136654071*^9, 
+  3.7585291367440233`*^9}, {3.7585292308404627`*^9, 3.758529231649817*^9}, {
+  3.765268959833289*^9, 3.76526895991809*^9}, {3.7652695972430687`*^9, 
+  3.765269597852973*^9}, {3.7663145648949833`*^9, 3.766314565371334*^9}},
+ CellLabel->"In[23]:=",ExpressionUUID->"dc6cc8dd-ef83-4215-9cdc-e21cc3482412"],
+
+Cell["\<\
+Additionally, it is also possible to define a multigraded lexicographic \
+order. This can be done by calling SetUpRing with two lists instead of one. \
+For example,\
+\>", "Text",
+ CellChangeTimes->{{3.774629056704789*^9, 
+  3.774629100736672*^9}},ExpressionUUID->"ce129549-9ca4-466c-8285-\
+1d25ebfea068"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"SetUpRing", "[", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"a", ",", 
+     SuperscriptBox["a", "-"]}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"b", ",", 
+     SuperscriptBox["b", "-"]}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.774629102893796*^9, 3.7746291177870893`*^9}},
+ CellLabel->"In[4]:=",ExpressionUUID->"c710409e-3b9c-4856-a0dd-cf597bc9fffa"],
+
+Cell[BoxData["\<\"\\!\\(\\*RowBox[{\\\"a\\\"}]\\) < \
+\\!\\(\\*SuperscriptBox[\\\"a\\\", \\\"-\\\"]\\) << \
+\\!\\(\\*RowBox[{\\\"b\\\"}]\\) < \\!\\(\\*SuperscriptBox[\\\"b\\\", \
+\\\"-\\\"]\\)\"\>"], "Print",
+ CellChangeTimes->{3.774629118578332*^9},
+ CellLabel->
+  "During evaluation of \
+In[4]:=",ExpressionUUID->"cc4ebf2a-4358-4e5e-bceb-7ac638f29ff9"]
+}, Open  ]],
+
+Cell[TextData[{
+ "would given a block ordering consisting of two blocks; the first block of \
+variables being a and ",
+ Cell[BoxData[
+  SuperscriptBox["a", "-"]],
+  CellChangeTimes->{{3.766315123874672*^9, 3.766315135036592*^9}},
+  ExpressionUUID->"08f47e3e-aa97-4d37-ab21-02388f6ea1db"],
+ " and the second block b and",
+ Cell[BoxData[
+  RowBox[{" ", 
+   SuperscriptBox["b", "-"]}]],
+  CellChangeTimes->{{3.766315123874672*^9, 3.766315135036592*^9}},
+  ExpressionUUID->"db16e04e-435e-4ffe-ba77-b9e8b0a8e5e4"],
+ ", respectively."
+}], "Text",
+ CellChangeTimes->{{3.774629123766055*^9, 
+  3.774629248616475*^9}},ExpressionUUID->"53200103-07a5-4159-aac2-\
+5887ec66b41b"],
+
+Cell["\<\
+To define an individual order, the user can provide a binary function \
+SortedQ[a,b] working on the set of all words that can be built from the \
+alphabet of variables. It decides, when given two words as input, which of \
+them is larger. For now, however, we will stick to the degree lexicographic \
+order.\
+\>", "Text",
+ CellChangeTimes->{{3.747318363392524*^9, 3.747318428793762*^9}, {
+  3.74732094409735*^9, 3.747321008367093*^9}, {3.747553751470395*^9, 
+  3.747553754992097*^9}, {3.747553926551907*^9, 3.747553931911834*^9}, {
+  3.760213002222118*^9, 3.7602130464639587`*^9}, {3.760213338533937*^9, 
+  3.760213339349132*^9}},ExpressionUUID->"df481b88-b781-4664-95b6-\
+95c1135e43b6"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"SortedQ", " ", "=", " ", "DegLex"}], ";"}]], "Input",
+ CellChangeTimes->{{3.747318459029914*^9, 3.7473184654914083`*^9}},
+ CellLabel->"In[5]:=",ExpressionUUID->"1abd8fa1-eba3-4b14-b675-0cc2f3db925e"],
+
+Cell[TextData[{
+ "An ideal can be defined simply by providing the generators as polynomials \
+using the built in noncommutative multiplication. For our example, our ideal \
+contains all our assumptions, i.e. the equations that A, ",
+ Cell[BoxData[
+  FormBox[
+   SuperscriptBox["A", "-"], TraditionalForm]],ExpressionUUID->
+  "5a7cde73-ed7c-499a-afa6-195c238b0ace"],
+ ", B and ",
+ Cell[BoxData[
+  FormBox[
+   SuperscriptBox["B", "-"], TraditionalForm]],ExpressionUUID->
+  "02bde138-8caa-4c55-b529-085191896d7f"],
+ " satisfy translated into noncommutative polynomials. "
+}], "Text",
+ CellChangeTimes->{{3.7473184812486486`*^9, 3.747318503005443*^9}, {
+   3.747318574323888*^9, 3.747318578648601*^9}, {3.747318642978446*^9, 
+   3.747318649166491*^9}, 3.7473186931319113`*^9, {3.747321013559394*^9, 
+   3.747321015582349*^9}, {3.760208705441593*^9, 3.760208716897297*^9}, {
+   3.7652689803550653`*^9, 3.765269132086562*^9}, {3.765269164423596*^9, 
+   3.765269220930797*^9}, 3.765269257617502*^9, {3.7652696189623413`*^9, 
+   3.765269666965795*^9}, {3.766314729661511*^9, 3.7663147619072657`*^9}, {
+   3.7663337687137003`*^9, 
+   3.7663337779247017`*^9}},ExpressionUUID->"93145cce-e44b-4cac-9a02-\
+692678aae0ea"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"assumptions", " ", "=", " ", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{
+      RowBox[{"a", "**", 
+       SuperscriptBox["a", "-"], "**", "a"}], "-", "a"}], ",", 
+     RowBox[{
+      RowBox[{"b", "**", 
+       SuperscriptBox["b", "-"], "**", "b"}], "-", "b"}], ",", 
+     RowBox[{
+      RowBox[{
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"], "**", 
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"]}], "-", 
+      RowBox[{
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"]}]}]}], "}"}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.765269736271648*^9, 3.765269752817503*^9}, 
+   3.7663147835267982`*^9},
+ CellLabel->"In[6]:=",ExpressionUUID->"bad71cbc-604e-4ca4-abae-ca0be15c28ee"],
+
+Cell["\<\
+Note that to be able to obtain a cofactor representation w.r.t the \
+assumptions, all generators of this ideal have to be monic. Otherwise, only a \
+cofactor representation w.r.t. to monic versions of the generators is \
+computed.  \
+\>", "Text",
+ CellChangeTimes->{{3.766331033432457*^9, 
+  3.766331097330332*^9}},ExpressionUUID->"3f3683b5-e8a3-489d-91c4-\
+93adae7f3cf0"],
+
+Cell["\<\
+To now compute a Groebner basis of the ideal generated by our assumptions, \
+the user has to provide a name. In a list with this given name the cofactors \
+of the new elements of the Groebner basis will be saved. 
+We will provide the name \[OpenCurlyDoubleQuote]cofactors\
+\[CloseCurlyDoubleQuote].
+
+The Groebner basis can then be computed using the method
+Groebner[cofactors,ideal,maxiter,MaxDeg->Infinity,Info->False,Parallel->True,\
+Sorted->False,Criterion->False].
+An additional parameter maxiter can be provided to determine how many \
+iterations of the Buchberger algorithm are executed at most. By default this \
+value is set to 10. It is also possible to set the OptionPattern MaxDeg \
+(default: Infinity) which determines the maximal degree of ambiguities that \
+are considered during the Groebner basis computation (ambiguities with larger \
+degree are simply ignored). Another OptionPattern is Info which can be set to \
+True (default False) to receive information about the computation progress. \
+Furthermore, the OptionPattern Parallel allows the user to specify whether \
+all possible computations are executed in parallel or all computations are \
+executed in series (default True). The OptionPattern Sorted sorts the \
+ambiguities before processing if set to True (default False). This might \
+speed up the computation but when only a partial Groebner basis is computed, \
+this results in a different partial Groebner basis then the result when \
+executing the same computation with Sorted disabled. The OptionPattern \
+Criterion tries to detect and delete redundant ambiguities during the \
+computation. In general, this speeds up the computation.  
+
+To compute a (partial) Groebner basis of an ideal without computing the \
+cofactors, the method 
+GroebnerWithoutCofactors[ideal, maxiter,MaxDeg->Infinity, Info->False, \
+Parallel->True, Sorted->False,  Criterion->False] can be used. It is slightly \
+faster than Groebner. For further information see the documentation of the \
+source code.
+
+For our example, we will now compute a Groebner basis of the ideal generated \
+by our assumptions together with the corresponding cofactors:\
+\>", "Text",
+ CellChangeTimes->{{3.747318830879273*^9, 3.747318893033759*^9}, {
+   3.747319229460187*^9, 3.747319243099395*^9}, {3.747319278276033*^9, 
+   3.7473193560862427`*^9}, {3.7473194024044724`*^9, 3.747319421908217*^9}, {
+   3.747319471037058*^9, 3.747319523343508*^9}, {3.747320551187665*^9, 
+   3.747320570578889*^9}, {3.747321037313431*^9, 3.747321065590116*^9}, {
+   3.747553966563304*^9, 3.7475540192674093`*^9}, {3.748256245876309*^9, 
+   3.7482562545050287`*^9}, {3.758530203803978*^9, 3.758530475607695*^9}, {
+   3.758530943737589*^9, 3.758531029889537*^9}, {3.75853108802396*^9, 
+   3.758531142592628*^9}, {3.7602088402996473`*^9, 3.7602088672494097`*^9}, {
+   3.764396973777956*^9, 3.76439707246804*^9}, {3.764399335615388*^9, 
+   3.764399355659792*^9}, {3.765269765509158*^9, 3.765269914810693*^9}, {
+   3.765269945598789*^9, 3.76527001892665*^9}, {3.766314810148978*^9, 
+   3.766314898851066*^9}, {3.7663149735190563`*^9, 3.76631498385428*^9}, 
+   3.766333819982201*^9, {3.7664923863184566`*^9, 3.766492437704322*^9}, {
+   3.7664924791909647`*^9, 3.766492569584052*^9}, {3.766581326322015*^9, 
+   3.76658136603421*^9}, {3.774629296323935*^9, 
+   3.774629392039445*^9}},ExpressionUUID->"f6160de0-36c8-43f3-8056-\
+7c5250acac25"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"G", " ", "=", " ", 
+   RowBox[{"Groebner", "[", 
+    RowBox[{"cofactors", ",", "assumptions", ",", 
+     RowBox[{"Info", "\[Rule]", "True"}]}], "]"}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.747319525443788*^9, 3.747319548400133*^9}, {
+  3.760208813763535*^9, 3.760208814202125*^9}, {3.760208895163467*^9, 
+  3.760208897495126*^9}, {3.760209475304315*^9, 3.7602094814645*^9}, {
+  3.765270033335885*^9, 3.7652700350836906`*^9}, {3.766315002455863*^9, 
+  3.7663150194747267`*^9}},
+ CellLabel->"In[7]:=",ExpressionUUID->"f7ea0bbf-fd3c-4745-b328-e509d56fb3ba"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"G has \"\>", "\[InvisibleSpace]", "3", 
+   "\[InvisibleSpace]", "\<\" elements in the beginning.\"\>"}],
+  SequenceForm["G has ", 3, " elements in the beginning."],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629400197525*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"879b2700-560e-40c0-9ccf-c98407472f35"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{
+  "5", "\[InvisibleSpace]", "\<\" ambiguities in total (computation took \
+\"\>", "\[InvisibleSpace]", "2.019674`", "\[InvisibleSpace]", "\<\")\"\>"}],
+  SequenceForm[5, " ambiguities in total (computation took ", 2.019674, ")"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.7746294022148848`*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"14f1f4e5-a3d5-4b07-a14b-39209d6df71f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Generating S-polys: \"\>", "\[InvisibleSpace]", "0.008998`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" in total)\"\>"}],
+  SequenceForm["Generating S-polys: ", 0.008998, " (", 2, " in total)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402227969*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"87d56d78-80a9-48a7-a300-13f355370ee0"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Reducing S-polys: \"\>", "\[InvisibleSpace]", "0.00024`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" remaining)\"\>"}],
+  SequenceForm["Reducing S-polys: ", 0.00024, " (", 2, " remaining)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402238043*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"2fb55210-c09b-4176-9c62-a51a0cc7bf9a"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"The second reduction took \"\>", "\[InvisibleSpace]", 
+   "0.163141`"}],
+  SequenceForm["The second reduction took ", 0.163141],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.7746294023483267`*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"00d1ac13-4d78-4da1-8c98-2de22eed5e15"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Iteration \"\>", "\[InvisibleSpace]", "1", 
+   "\[InvisibleSpace]", "\<\" finished. G has now \"\>", "\[InvisibleSpace]", 
+   "5", "\[InvisibleSpace]", "\<\" elements\\n\"\>"}],
+  SequenceForm["Iteration ", 1, " finished. G has now ", 5, " elements\n"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402358974*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"b01b73cb-b05e-4316-8d84-5c2fa01f9a25"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{
+  "15", "\[InvisibleSpace]", "\<\" ambiguities in total (computation took \
+\"\>", "\[InvisibleSpace]", "0.009461`", "\[InvisibleSpace]", "\<\")\"\>"}],
+  SequenceForm[15, " ambiguities in total (computation took ", 0.009461, ")"],
+  
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.7746294023669767`*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"ac1d8b6b-387c-427a-98b5-b6bf68402145"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Generating S-polys: \"\>", "\[InvisibleSpace]", "0.010139`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "4", 
+   "\[InvisibleSpace]", "\<\" in total)\"\>"}],
+  SequenceForm["Generating S-polys: ", 0.010139, " (", 4, " in total)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402374402*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"1d874f8f-a2fd-4a1b-8ece-5e1ed33836d3"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Reducing S-polys: \"\>", "\[InvisibleSpace]", "0.000381`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" remaining)\"\>"}],
+  SequenceForm["Reducing S-polys: ", 0.000381, " (", 2, " remaining)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402381332*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"7cc1b44d-4edb-432b-968b-343bd4202e0f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"The second reduction took \"\>", "\[InvisibleSpace]", 
+   "0.118497`"}],
+  SequenceForm["The second reduction took ", 0.118497],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402488226*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"220b140e-bab0-4d34-b180-640cd49c3515"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Iteration \"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" finished. G has now \"\>", "\[InvisibleSpace]", 
+   "6", "\[InvisibleSpace]", "\<\" elements\\n\"\>"}],
+  SequenceForm["Iteration ", 2, " finished. G has now ", 6, " elements\n"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402496175*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"7ae37f9d-1e2a-40e0-b2c1-a35f959fdd34"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{
+  "12", "\[InvisibleSpace]", "\<\" ambiguities in total (computation took \
+\"\>", "\[InvisibleSpace]", "0.009756`", "\[InvisibleSpace]", "\<\")\"\>"}],
+  SequenceForm[12, " ambiguities in total (computation took ", 0.009756, ")"],
+  
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402505691*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"c7253348-efda-4f3a-8e76-844c8dc9447b"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Generating S-polys: \"\>", "\[InvisibleSpace]", "0.007914`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" in total)\"\>"}],
+  SequenceForm["Generating S-polys: ", 0.007914, " (", 2, " in total)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.7746294025127563`*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"4d7f54ed-1db5-44bc-9b80-04c191bc2f57"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Reducing S-polys: \"\>", "\[InvisibleSpace]", "0.000217`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" remaining)\"\>"}],
+  SequenceForm["Reducing S-polys: ", 0.000217, " (", 0, " remaining)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402519902*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"0dda2ad8-e333-4b9a-af4c-73530f6e235b"],
+
+Cell[BoxData["\<\"Rewriting the cofactors has started.\"\>"], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402527203*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"1991771b-2a85-472b-8fd5-d08b5955f489"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Rewriting the cofactors took in total \"\>", 
+   "\[InvisibleSpace]", "0.12492`"}],
+  SequenceForm["Rewriting the cofactors took in total ", 0.12492],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.76631501996905*^9, 3.766329295663082*^9, 
+  3.766329831404008*^9, 3.766333070020753*^9, 3.766333914627141*^9, 
+  3.76667287746807*^9, 3.774629402644944*^9},
+ CellLabel->
+  "During evaluation of \
+In[7]:=",ExpressionUUID->"8a1006bd-d133-420e-a6bf-d33a6b369640"]
+}, Open  ]]
+}, Open  ]],
+
+Cell["G now contains a Groebner basis of the ideal:", "Text",
+ CellChangeTimes->{{3.747319704408589*^9, 3.747319847812875*^9}, {
+  3.747320222294841*^9, 3.747320271774232*^9}, {3.747321091635985*^9, 
+  3.7473210918418493`*^9}, {3.747554047716524*^9, 3.747554055525339*^9}, {
+  3.758530600850172*^9, 3.7585306329226627`*^9}, {3.7602145998361483`*^9, 
+  3.760214602970512*^9}, {3.7652701014986687`*^9, 
+  3.7652701036954803`*^9}},ExpressionUUID->"d5d0b615-b6d2-487a-afde-\
+4f0ff3906eaf"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["G"], "Input",
+ CellChangeTimes->{
+  3.760209393884704*^9, {3.760209514838529*^9, 3.760209553167275*^9}, {
+   3.760209584966029*^9, 3.760209606916717*^9}, 3.760209718227203*^9},
+ CellLabel->"In[8]:=",ExpressionUUID->"9aabdb55-cc35-4bb1-8dc5-0a53a62c79a8"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"-", "a"}], "+", 
+    RowBox[{"a", "**", 
+     SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+   RowBox[{
+    RowBox[{"-", "b"}], "+", 
+    RowBox[{"b", "**", 
+     SuperscriptBox["b", "-"], "**", "b"}]}], ",", 
+   RowBox[{
+    RowBox[{"-", 
+     RowBox[{
+      SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+      SuperscriptBox["b", "-"]}]}], "+", 
+    RowBox[{
+     SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+     SuperscriptBox["b", "-"], "**", 
+     SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+     SuperscriptBox["b", "-"]}]}], ",", 
+   RowBox[{
+    RowBox[{"-", 
+     RowBox[{"a", "**", "b", "**", 
+      SuperscriptBox["b", "-"]}]}], "+", 
+    RowBox[{"a", "**", "b", "**", 
+     SuperscriptBox["b", "-"], "**", 
+     SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+     SuperscriptBox["b", "-"]}]}], ",", 
+   RowBox[{
+    RowBox[{"-", 
+     RowBox[{
+      SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}], "+", 
+    RowBox[{
+     SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+     SuperscriptBox["b", "-"], "**", 
+     SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}], ",", 
+   RowBox[{
+    RowBox[{"-", 
+     RowBox[{"a", "**", "b"}]}], "+", 
+    RowBox[{"a", "**", "b", "**", 
+     SuperscriptBox["b", "-"], "**", 
+     SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}]}], "}"}]], "Output",
+ CellChangeTimes->{
+  3.760209567909307*^9, {3.760209603047852*^9, 3.7602096072319593`*^9}, 
+   3.7602097185505753`*^9, 3.760210348996307*^9, 3.760210767691341*^9, 
+   3.760210859518626*^9, 3.760214604915021*^9, 3.760436354766542*^9, 
+   3.761903138322332*^9, {3.765270099175139*^9, 3.765270105920025*^9}, 
+   3.765271248304647*^9, 3.7663150397545643`*^9, 3.766329302084045*^9, 
+   3.766329835792746*^9, 3.7663339208324842`*^9, 3.766672890732709*^9, 
+   3.774629405884053*^9},
+ CellLabel->"Out[8]=",ExpressionUUID->"6f9fb118-ce03-4e1f-825e-6051e37ccf6f"]
+}, Open  ]],
+
+Cell["\<\
+During the Groebner basis computation a list named \
+\[OpenCurlyDoubleQuote]cofactors\[CloseCurlyDoubleQuote] has been generated. \
+For each element g that has been added to the Groebner basis, this list \
+contains a pair {g,l}, where l is a list of triples {a,f,b}. This list of \
+triples forms a linear combination of g in terms of the monic generators f of \
+the ideal and certain cofactors a,b. \
+\>", "Text",
+ CellChangeTimes->{
+  3.765270132249667*^9, {3.766315065920824*^9, 3.766315095029142*^9}, {
+   3.766329399700077*^9, 3.766329450013359*^9}, {3.7663295419582767`*^9, 
+   3.7663295632774887`*^9}, {3.766329599911825*^9, 3.766329601318789*^9}, {
+   3.76632964689076*^9, 3.766329650215756*^9}, {3.766329708171897*^9, 
+   3.766329734595139*^9}},ExpressionUUID->"31aeb2fc-6d3d-48a0-bf60-\
+62395e2fc44a"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["cofactors"], "Input",
+ CellChangeTimes->{{3.760432604063569*^9, 3.760432605512535*^9}},
+ CellLabel->"In[9]:=",ExpressionUUID->"38596d5d-f653-4b07-95b9-94b2c5442802"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{
+      RowBox[{"-", 
+       RowBox[{"a", "**", "b", "**", 
+        SuperscriptBox["b", "-"]}]}], "+", 
+      RowBox[{"a", "**", "b", "**", 
+       SuperscriptBox["b", "-"], "**", 
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"]}]}], ",", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", 
+        RowBox[{"a", ",", 
+         RowBox[{
+          RowBox[{"-", 
+           RowBox[{
+            SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+            SuperscriptBox["b", "-"]}]}], "+", 
+          RowBox[{
+           SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+           SuperscriptBox["b", "-"], "**", 
+           SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+           SuperscriptBox["b", "-"]}]}], ",", "1"}], "}"}], ",", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"-", "1"}], ",", 
+         RowBox[{
+          RowBox[{"-", "a"}], "+", 
+          RowBox[{"a", "**", 
+           SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+         RowBox[{"b", "**", 
+          SuperscriptBox["b", "-"], "**", 
+          SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+          SuperscriptBox["b", "-"]}]}], "}"}], ",", 
+       RowBox[{"{", 
+        RowBox[{"1", ",", 
+         RowBox[{
+          RowBox[{"-", "a"}], "+", 
+          RowBox[{"a", "**", 
+           SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+         RowBox[{"b", "**", 
+          SuperscriptBox["b", "-"]}]}], "}"}]}], "}"}]}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{
+      RowBox[{"-", 
+       RowBox[{
+        SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}], "+", 
+      RowBox[{
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"], "**", 
+       SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}], ",", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{
+          SuperscriptBox["a", "-"], "**", "a"}], ",", 
+         RowBox[{
+          RowBox[{"-", "b"}], "+", 
+          RowBox[{"b", "**", 
+           SuperscriptBox["b", "-"], "**", "b"}]}], ",", "1"}], "}"}], ",", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"-", 
+          RowBox[{
+           SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+           SuperscriptBox["b", "-"], "**", 
+           SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+         RowBox[{
+          RowBox[{"-", "b"}], "+", 
+          RowBox[{"b", "**", 
+           SuperscriptBox["b", "-"], "**", "b"}]}], ",", "1"}], "}"}], ",", 
+       RowBox[{"{", 
+        RowBox[{"1", ",", 
+         RowBox[{
+          RowBox[{"-", 
+           RowBox[{
+            SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+            SuperscriptBox["b", "-"]}]}], "+", 
+          RowBox[{
+           SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+           SuperscriptBox["b", "-"], "**", 
+           SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+           SuperscriptBox["b", "-"]}]}], ",", "b"}], "}"}]}], "}"}]}], "}"}], 
+   ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{
+      RowBox[{"-", 
+       RowBox[{"a", "**", "b"}]}], "+", 
+      RowBox[{"a", "**", "b", "**", 
+       SuperscriptBox["b", "-"], "**", 
+       SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}], ",", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"a", "**", 
+          SuperscriptBox["a", "-"], "**", "a"}], ",", 
+         RowBox[{
+          RowBox[{"-", "b"}], "+", 
+          RowBox[{"b", "**", 
+           SuperscriptBox["b", "-"], "**", "b"}]}], ",", "1"}], "}"}], ",", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"-", 
+          RowBox[{"a", "**", 
+           SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+           SuperscriptBox["b", "-"], "**", 
+           SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+         RowBox[{
+          RowBox[{"-", "b"}], "+", 
+          RowBox[{"b", "**", 
+           SuperscriptBox["b", "-"], "**", "b"}]}], ",", "1"}], "}"}], ",", 
+       RowBox[{"{", 
+        RowBox[{"a", ",", 
+         RowBox[{
+          RowBox[{"-", 
+           RowBox[{
+            SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+            SuperscriptBox["b", "-"]}]}], "+", 
+          RowBox[{
+           SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+           SuperscriptBox["b", "-"], "**", 
+           SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+           SuperscriptBox["b", "-"]}]}], ",", "b"}], "}"}], ",", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"-", "1"}], ",", 
+         RowBox[{
+          RowBox[{"-", "a"}], "+", 
+          RowBox[{"a", "**", 
+           SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+         RowBox[{"b", "**", 
+          SuperscriptBox["b", "-"], "**", 
+          SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}], "}"}], ",", 
+       RowBox[{"{", 
+        RowBox[{"1", ",", 
+         RowBox[{
+          RowBox[{"-", "a"}], "+", 
+          RowBox[{"a", "**", 
+           SuperscriptBox["a", "-"], "**", "a"}]}], ",", "b"}], "}"}]}], 
+      "}"}]}], "}"}]}], "}"}]], "Output",
+ CellChangeTimes->{3.760432606207481*^9, 3.76043635808099*^9, 
+  3.761903139269516*^9, 3.76527010933325*^9, 3.7652712500013523`*^9, 
+  3.766315100463262*^9, 3.766329303700808*^9, 3.76632983788968*^9, 
+  3.766333935076006*^9, 3.7666730064038067`*^9, 3.77462940898577*^9},
+ CellLabel->"Out[9]=",ExpressionUUID->"0d951eee-bea6-4ace-a79e-a08e42361c3a"]
+}, Open  ]],
+
+Cell[TextData[{
+ "The first pair {g,l} in cofactors corresponds to the first element that has \
+been added to the Groebner basis, i.e to G[[4]] =",
+ Cell[BoxData[
+  RowBox[{" ", 
+   RowBox[{
+    RowBox[{"-", 
+     SuperscriptBox["abb", "-"]}], "+", 
+    RowBox[{
+     SuperscriptBox["abb", "-"], 
+     SuperscriptBox["a", "-"], "abb"}]}]}]],
+  CellChangeTimes->{{3.766315123874672*^9, 3.766315135036592*^9}},
+  ExpressionUUID->"db54453b-bbb1-436c-87cc-9ab6dc5864ad"],
+ "."
+}], "Text",
+ CellChangeTimes->{{3.747554089401626*^9, 3.747554138598072*^9}, {
+   3.7482563580295*^9, 3.74825636040586*^9}, {3.758530653315851*^9, 
+   3.758530669466692*^9}, {3.760214627407332*^9, 3.7602146300882063`*^9}, 
+   3.765270114981308*^9, {3.765270147503653*^9, 3.765270173909284*^9}, {
+   3.766315141567903*^9, 
+   3.766315180208076*^9}},ExpressionUUID->"a30c7d4a-0dbf-42b1-9645-\
+199f5fae0798"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"cofactors", "[", 
+  RowBox[{"[", 
+   RowBox[{"1", ",", "1"}], "]"}], "]"}]], "Input",
+ CellChangeTimes->{{3.747319887783947*^9, 3.747319890602728*^9}, {
+  3.7473201636066732`*^9, 3.747320163669241*^9}, {3.747320275825227*^9, 
+  3.7473202798396463`*^9}},
+ CellLabel->"In[10]:=",ExpressionUUID->"1dbd754e-18f5-4cfb-8545-1c072f4de49b"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"-", 
+   RowBox[{"a", "**", "b", "**", 
+    SuperscriptBox["b", "-"]}]}], "+", 
+  RowBox[{"a", "**", "b", "**", 
+   SuperscriptBox["b", "-"], "**", 
+   SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+   SuperscriptBox["b", "-"]}]}]], "Output",
+ CellChangeTimes->{3.7602100786505632`*^9, 3.760210363529129*^9, 
+  3.7602112853198233`*^9, 3.760211356466658*^9, 3.760214634796247*^9, 
+  3.761903161648284*^9, 3.765270178885479*^9, 3.765271252354085*^9, 
+  3.766315253172538*^9, 3.7663293227115507`*^9, 3.766329840448942*^9, 
+  3.766333939293909*^9, 3.766673008757166*^9, 3.774629418797477*^9},
+ CellLabel->"Out[10]=",ExpressionUUID->"919cf1ad-28f6-4714-8385-996302deb65a"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"cofactors", "[", 
+  RowBox[{"[", 
+   RowBox[{"1", ",", "2"}], "]"}], "]"}]], "Input",
+ CellChangeTimes->{{3.747319893302371*^9, 3.747319995778867*^9}, {
+  3.747320167640772*^9, 3.747320167727378*^9}, {3.747320202516572*^9, 
+  3.747320203611824*^9}, {3.7473202818581543`*^9, 3.747320281980554*^9}, {
+  3.7602113541583567`*^9, 3.7602113545969553`*^9}},
+ CellLabel->"In[11]:=",ExpressionUUID->"bebeb587-45ab-46c2-90c2-14287e55ddec"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"a", ",", 
+     RowBox[{
+      RowBox[{"-", 
+       RowBox[{
+        SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+        SuperscriptBox["b", "-"]}]}], "+", 
+      RowBox[{
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"], "**", 
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"]}]}], ",", "1"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"-", "1"}], ",", 
+     RowBox[{
+      RowBox[{"-", "a"}], "+", 
+      RowBox[{"a", "**", 
+       SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+     RowBox[{"b", "**", 
+      SuperscriptBox["b", "-"], "**", 
+      SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+      SuperscriptBox["b", "-"]}]}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"1", ",", 
+     RowBox[{
+      RowBox[{"-", "a"}], "+", 
+      RowBox[{"a", "**", 
+       SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+     RowBox[{"b", "**", 
+      SuperscriptBox["b", "-"]}]}], "}"}]}], "}"}]], "Output",
+ CellChangeTimes->{3.760210083833941*^9, 3.760210368564559*^9, 
+  3.7602113550342207`*^9, 3.760214636923524*^9, 3.761903162793126*^9, 
+  3.7652701865927153`*^9, 3.765271253776575*^9, 3.766315261299699*^9, 
+  3.766329324127338*^9, 3.766329841415509*^9, 3.766333941877618*^9, 
+  3.766673010711157*^9, 3.774629419370432*^9},
+ CellLabel->"Out[11]=",ExpressionUUID->"c15e0794-21a7-49de-be4b-626708783308"]
+}, Open  ]],
+
+Cell["Actually computing this linear combination yields", "Text",
+ CellChangeTimes->{{3.747554188044325*^9, 
+  3.7475541981159267`*^9}},ExpressionUUID->"64437e1b-32a7-41fb-a8fb-\
+056f80a21c1e"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"MultiplyOut", "[", 
+  RowBox[{"cofactors", "[", 
+   RowBox[{"[", 
+    RowBox[{"1", ",", "2"}], "]"}], "]"}], "]"}]], "Input",
+ CellChangeTimes->{{3.747320007059823*^9, 3.747320022386018*^9}, {
+  3.760210091086946*^9, 3.7602100924978237`*^9}, {3.760210374396509*^9, 
+  3.7602103751178923`*^9}, {3.760211342181178*^9, 3.760211350756469*^9}},
+ CellLabel->"In[12]:=",ExpressionUUID->"fb979ad8-8179-4a78-ba88-5ea76592dbe8"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"-", 
+   RowBox[{"a", "**", "b", "**", 
+    SuperscriptBox["b", "-"]}]}], "+", 
+  RowBox[{"a", "**", "b", "**", 
+   SuperscriptBox["b", "-"], "**", 
+   SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+   SuperscriptBox["b", "-"]}]}]], "Output",
+ CellChangeTimes->{3.7652712586166058`*^9, 3.766315266699218*^9, 
+  3.7663298427807713`*^9, 3.766333945810639*^9, 3.766673087977934*^9, 
+  3.77462942110174*^9},
+ CellLabel->"Out[12]=",ExpressionUUID->"df48f5e6-bacb-4378-8990-26c92da7f2cf"]
+}, Open  ]],
+
+Cell["\<\
+We can prove our claim (the reverse order law) by testing whether the \
+polynomial corresponding to this operator identity lies in the ideal \
+generated by our assumptions. This ideal membership can be tested using the \
+method ReducedForm[vars,G,exp], which reduces the expression exp using the \
+elements of G and saves the linear combination obtained by these reduction \
+steps in a list named \[OpenCurlyDoubleQuote]vars\[CloseCurlyDoubleQuote].
+
+So, we transform our claim into a polynomial...\
+\>", "Text",
+ CellChangeTimes->{{3.747320043636763*^9, 3.747320150264268*^9}, {
+   3.7473202877573757`*^9, 3.7473203336305313`*^9}, {3.747320493965167*^9, 
+   3.747320536374052*^9}, 3.747321158755517*^9, {3.7482563994988213`*^9, 
+   3.748256442181678*^9}, {3.760214654447756*^9, 3.7602146564773483`*^9}, {
+   3.7652701996313877`*^9, 3.765270269995816*^9}, {3.765271269210815*^9, 
+   3.765271288771678*^9}, {3.766315276227994*^9, 
+   3.7663153360067863`*^9}},ExpressionUUID->"b1d83451-b5f4-4a97-8445-\
+293476ac2faa"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"claim", "=", " ", 
+   RowBox[{
+    RowBox[{"a", "**", "b", "**", 
+     SuperscriptBox["b", "-"], "**", 
+     SuperscriptBox["a", "-"], "**", "a", "**", "b"}], "-", 
+    RowBox[{"a", "**", "b"}]}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.747320340521337*^9, 3.74732047320422*^9}, {
+   3.7473206515902567`*^9, 3.7473206517849627`*^9}, 3.7482564459547157`*^9, {
+   3.760211366974935*^9, 3.760211407478281*^9}, {3.760214296469199*^9, 
+   3.760214297652874*^9}, {3.765270257688286*^9, 3.765270277861628*^9}, 
+   3.765270314383053*^9, {3.766315345986158*^9, 3.766315352201913*^9}},
+ CellLabel->"In[13]:=",ExpressionUUID->"9b69b624-319d-4afe-9727-e01a2a61ceac"],
+
+Cell["\<\
+...and show that this polynomial can be reduced to 0 using our Groebner basis \
+G.\
+\>", "Text",
+ CellChangeTimes->{{3.765270283550024*^9, 3.7652703050464697`*^9}, {
+  3.766315355931246*^9, 
+  3.766315359543645*^9}},ExpressionUUID->"63e9974a-c89d-42ff-9c4c-\
+6ab6c82e02a4"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"ReducedForm", "[", 
+  RowBox[{"vars", ",", "G", ",", "claim"}], "]"}]], "Input",
+ CellChangeTimes->{{3.7602146689809017`*^9, 3.760214676249278*^9}, {
+  3.7652703115132303`*^9, 3.765270316358988*^9}, {3.7663153647419157`*^9, 
+  3.766315369198736*^9}},
+ CellLabel->"In[14]:=",ExpressionUUID->"608781a3-def2-4cb2-8c85-fe55a060ec6d"],
+
+Cell[BoxData["0"], "Output",
+ CellChangeTimes->{3.760214677080921*^9, 3.761903172354623*^9, 
+  3.7652703169077272`*^9, 3.765270910359455*^9, 3.76527129254711*^9, 
+  3.7663153703426943`*^9, 3.766329334888324*^9, 3.766329848627123*^9, 
+  3.766333953647023*^9, 3.766673096566986*^9, 3.774629426999864*^9},
+ CellLabel->"Out[14]=",ExpressionUUID->"821203ab-41c1-4b8a-a4d4-3ff1698e53da"]
+}, Open  ]],
+
+Cell["\<\
+And we also obtain a linear combination of the claim in terms of the elements \
+of G\
+\>", "Text",
+ CellChangeTimes->{{3.76527033190627*^9, 3.765270346307075*^9}, 
+   3.76631537618962*^9},ExpressionUUID->"d854ac8c-ff88-4e8b-b60c-\
+580c07787343"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"MultiplyOut", "[", "vars", "]"}]], "Input",
+ CellChangeTimes->{{3.760211517638266*^9, 3.7602115225187893`*^9}, {
+  3.760211769749249*^9, 3.760211771272503*^9}, {3.76527034931252*^9, 
+  3.765270358998616*^9}, {3.7652713423116217`*^9, 3.765271353079729*^9}, {
+  3.766315373791305*^9, 3.766315383173976*^9}},
+ CellLabel->"In[15]:=",ExpressionUUID->"df2d8f19-93b5-4d43-aa4b-47b56ab2ac0b"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"-", 
+   RowBox[{"a", "**", "b"}]}], "+", 
+  RowBox[{"a", "**", "b", "**", 
+   SuperscriptBox["b", "-"], "**", 
+   SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}]], "Output",
+ CellChangeTimes->{
+  3.760211522920277*^9, {3.7602117678421307`*^9, 3.760211771646143*^9}, 
+   3.7602146806100407`*^9, 3.76190317330361*^9, {3.7652703548970737`*^9, 
+   3.765270359454195*^9}, 3.765271296385305*^9, 3.765271353542758*^9, 
+   3.7663153847477493`*^9, 3.7663293361870813`*^9, 3.766329849974587*^9, 
+   3.766333957333411*^9, 3.7666730983179502`*^9, 3.7746294286279097`*^9},
+ CellLabel->"Out[15]=",ExpressionUUID->"4c812039-41a5-4a34-9058-131cb62e5604"]
+}, Open  ]],
+
+Cell["\<\
+Usually, we want to have a linear combination only consisting of the \
+generators of the ideal, i.e. of our assumptions. This can be achieved using \
+the method Rewrite[vars,cofactors], where cofactors is the list obtained from \
+calling MyGroebner[cofactors,assumptions].\
+\>", "Text",
+ CellChangeTimes->{{3.747320671230789*^9, 3.747320805740024*^9}, {
+  3.747554377821135*^9, 3.747554378606419*^9}, {3.760214697950314*^9, 
+  3.760214698352627*^9}, {3.765270364000009*^9, 3.7652703901628923`*^9}, {
+  3.7652704359577503`*^9, 
+  3.7652704713333683`*^9}},ExpressionUUID->"22500d10-fd55-4916-b5ca-\
+5d8516b2b02d"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"Rewrite", "[", 
+   RowBox[{"vars", ",", "cofactors"}], "]"}], " "}]], "Input",
+ CellChangeTimes->{{3.747320817517375*^9, 3.7473208226928797`*^9}, {
+  3.758530847013747*^9, 3.75853086961602*^9}, {3.7652713574129953`*^9, 
+  3.765271358035377*^9}, {3.766315418719996*^9, 3.7663154511997967`*^9}},
+ CellLabel->"In[16]:=",ExpressionUUID->"d8579a82-0fa8-426c-afc9-1fe9d6cbab4b"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"a", "**", 
+      SuperscriptBox["a", "-"], "**", "a"}], ",", 
+     RowBox[{
+      RowBox[{"-", "b"}], "+", 
+      RowBox[{"b", "**", 
+       SuperscriptBox["b", "-"], "**", "b"}]}], ",", "1"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"-", 
+      RowBox[{"a", "**", 
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"], "**", 
+       SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+     RowBox[{
+      RowBox[{"-", "b"}], "+", 
+      RowBox[{"b", "**", 
+       SuperscriptBox["b", "-"], "**", "b"}]}], ",", "1"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"a", ",", 
+     RowBox[{
+      RowBox[{"-", 
+       RowBox[{
+        SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+        SuperscriptBox["b", "-"]}]}], "+", 
+      RowBox[{
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"], "**", 
+       SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+       SuperscriptBox["b", "-"]}]}], ",", "b"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"-", "1"}], ",", 
+     RowBox[{
+      RowBox[{"-", "a"}], "+", 
+      RowBox[{"a", "**", 
+       SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+     RowBox[{"b", "**", 
+      SuperscriptBox["b", "-"], "**", 
+      SuperscriptBox["a", "-"], "**", "a", "**", "b"}]}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"1", ",", 
+     RowBox[{
+      RowBox[{"-", "a"}], "+", 
+      RowBox[{"a", "**", 
+       SuperscriptBox["a", "-"], "**", "a"}]}], ",", "b"}], "}"}]}], 
+  "}"}]], "Output",
+ CellChangeTimes->{
+  3.760214701110834*^9, 3.765271300255671*^9, 3.765271358664919*^9, {
+   3.766315402118038*^9, 3.7663154516449013`*^9}, 3.766329338907288*^9, 
+   3.766329853057007*^9, {3.766333959467511*^9, 3.76633398282506*^9}, 
+   3.7666731004334908`*^9, 3.7746294304628696`*^9},
+ CellLabel->"Out[16]=",ExpressionUUID->"1033ccd6-269a-4d19-93a9-22a6b1cb3b59"]
+}, Open  ]],
+
+Cell["\<\
+The resulting list consists only of triples {a,f,b}, where a,b are certain \
+cofactors and f are the monic generators of the ideal. We can check that this \
+list still yields the same result when we compute the linear combination: \
+\>", "Text",
+ CellChangeTimes->{{3.747554412012245*^9, 3.7475545223899717`*^9}, {
+  3.7585307660455713`*^9, 3.758530784548435*^9}, {3.766315407300683*^9, 
+  3.7663154078959007`*^9}, {3.7663310007787237`*^9, 
+  3.766331002961432*^9}},ExpressionUUID->"33639a09-442e-49d8-b18a-\
+2abd70b03685"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"MultiplyOut", "[", "%", "]"}], " ", "===", " ", "claim"}]], "Input",\
+
+ CellChangeTimes->{{3.760214710814472*^9, 3.7602147153000183`*^9}, {
+   3.7652713129535847`*^9, 3.7652713376151857`*^9}, 3.766315415913851*^9, {
+   3.7663154545814867`*^9, 3.76631545744718*^9}},
+ CellLabel->"In[17]:=",ExpressionUUID->"367b6762-a296-495e-8437-8a4cbfd0f144"],
+
+Cell[BoxData["True"], "Output",
+ CellChangeTimes->{{3.765271338317541*^9, 3.76527136044773*^9}, {
+   3.7663154166417017`*^9, 3.7663154260108833`*^9}, 3.766315458831643*^9, 
+   3.7663293417406397`*^9, 3.766329855715076*^9, {3.7663339613382273`*^9, 
+   3.7663339842085257`*^9}, 3.766673101970579*^9, 3.774629433214265*^9},
+ CellLabel->"Out[17]=",ExpressionUUID->"ed76aeb0-4605-40ec-bd9c-6208cf161b7c"]
+}, Open  ]],
+
+Cell["\<\
+Additionally, the package also allows to work with labelled quivers (not \
+necessarily with unique labels). Such a quiver can be defined by providing a \
+list of triples {l,s,t}, where l is the label, s is the source and t the \
+target of a certain edge in the quiver. We can set up a quiver for our \
+example as follows:\
+\>", "Text",
+ CellChangeTimes->{{3.765271444353952*^9, 3.7652715282166243`*^9}, {
+   3.7652716412662*^9, 3.7652716547324533`*^9}, 
+   3.765272649803521*^9},ExpressionUUID->"cb6509f1-cdc0-423d-b784-\
+1cafcc04085d"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"Q", "=", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"a", ",", "V", ",", "W"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{
+       SuperscriptBox["a", "-"], ",", "W", ",", "V"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"b", ",", "U", ",", "V"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{
+       SuperscriptBox["b", "-"], ",", "V", ",", "U"}], "}"}]}], "}"}]}], 
+  ";"}]], "Input",
+ CellChangeTimes->{{3.7652715298318443`*^9, 3.7652715943829107`*^9}, {
+   3.765271656048396*^9, 3.765271678733766*^9}, {3.765271772020671*^9, 
+   3.7652717730455008`*^9}, {3.766315512046221*^9, 3.766315538523696*^9}, {
+   3.7663156164718027`*^9, 3.766315639186236*^9}, 3.7663292370532627`*^9},
+ CellLabel->"In[18]:=",ExpressionUUID->"ba956d31-0270-4217-b58a-4261e7e3a6c9"],
+
+Cell["To get a better overview, we can plot the quiver:", "Text",
+ CellChangeTimes->{{3.765271602405097*^9, 
+  3.765271614098192*^9}},ExpressionUUID->"25b9bc0f-e3a3-467e-a6be-\
+e1e6540cdd80"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"PlotQuiver", "[", "Q", "]"}]], "Input",
+ CellChangeTimes->{{3.765271615223598*^9, 3.765271618778721*^9}},
+ CellLabel->"In[19]:=",ExpressionUUID->"413abd86-753f-419c-9bac-71588517d6f6"],
+
+Cell[BoxData[
+ GraphicsBox[
+  TagBox[GraphicsComplexBox[CompressedData["
+1:eJw1k3tIU3EUx6f2opIUs4e9loVZ6lJnZdE6krr6I/JahFqY7y2kcmnqHz1c
+08pqsixNt5Uta80g1zKD1OLe8tV0mpZFUX9MmTrtwZpCmprd3xkOLuNcDuec
+7/f7uWuTMw6kOXM4nHD2If+Onw1SWppCKvVWwcybtpKbunGZfaYOm3l/w+fM
+jpjaH8Aw/b7CeBW9SqiR5HZ/B0p25MKvHA2dHao2Wn4MQ9g8+XQN3Ke/xsl/
+DcwZBtvK2mXuhVp6Upb5t3nNEFBp78uio3R0iUWR0rbNCtzyB2/6S6roQ8Ia
+y86oQUisE10Sxz6i09+miUSiAWAyP5QplY/oyD9BfD7/A3BzC7Cuc1JuvZTU
+DWEFC7Hf19Bw6hP3HbgFAM7bnx20xCptB6o9CfdVnGqLTLW0gvRoKN5jESu+
+HN/XBBL+bLy3tv6MwLueAabKKCV6up6v9RfG1wMT8HgD0Zta+ia5R/sbNK+s
+PLYGepFhT8RSO3QVxhSw/bDpbrC66IodKLnM+Rnch3zP+kL5pB3MntoV7D44
+OafVeZVkBDimVyr2HlDEhXZ6WUZAIr7azN4L8/10RUmxo2D4KbzC6gFjeofJ
+ZBoFar5exeoF/25WPn8C3DzcsG52PZxZoZsASf6NQtLf8/FtUP+KSQgrppvI
+vPDlO6b6FJOsv9+UZN/OUWFulssUuCmrvcg9x/Z3pmbmTIG577QTuTe3gXrR
+YJ0C5iM/n+ihXHfd8Tv8D8xl2f5Er6TdB/2QHrwdSGr54Hn0y9C+9SLp562+
+iX5qosUuZN6t8k70mxIpVpJ97qNbMA+DvlpN7qk5wWBe0t68FnJvXJYa82Sc
+d18legIyQhx5v9Srid6EWWLkQcokYL0+7xnyoukYRL/GPIqRJ0mOF87TV2Yh
+b4bFAtynSilCHs06D7xnns9t5LXrrBnzOuR+D3nm2h9gnnuNDt6lTPJmorci
+XYB+JA699yM8hNui0C9DhUlGePmc2IF+Blb+4bDz6LzhSPSb8fMiftMl46GY
+h7k3mORBZz1sxbyoc9ONhNexnljM87rLy8uE5+2lwZh3IHedkvD+iWdCHmy+
+F8tJLbBrkRdKORf7eZu2IU9cXQjOoweaHbzpo8vJvpYFdcijTe+9nNyjehqE
+vDJjQ8j/tYgnyLPmexV+zzX21w7eGxM2Er3/Ad9PF8E=
+    "], {
+     {RGBColor[0.5, 0., 0.], Arrowheads[{{0.03384563758389261, 0.8}}], 
+      {Arrowheads[{{0.5, 0.5, 
+          GraphicsBox[{
+            GrayLevel[0], 
+            InsetBox[
+             BoxData[
+              FormBox[
+               StyleBox["a", StripOnInput -> False], TraditionalForm]], {0, 
+             0}, 
+             ImageScaled[{0.5, 0.5}], Automatic, None, Background -> 
+             GrayLevel[1]]}]}, {0.03384563758389261, 0.8}}], 
+       ArrowBox[{1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 
+        2}]}, 
+      {Arrowheads[{{0.5, 0.5, 
+          GraphicsBox[{
+            GrayLevel[0], 
+            InsetBox[
+             BoxData[
+              FormBox[
+               StyleBox[
+                SuperscriptBox["b", "-"], StripOnInput -> False], 
+               TraditionalForm]], {0, 0}, 
+             ImageScaled[{0.5, 0.5}], Automatic, None, Background -> 
+             GrayLevel[1]]}]}, {0.03384563758389261, 0.8}}], 
+       ArrowBox[{1, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 
+        34, 35, 3}]}, 
+      {Arrowheads[{{0.5, 0.5, 
+          GraphicsBox[{
+            GrayLevel[0], 
+            InsetBox[
+             BoxData[
+              FormBox[
+               StyleBox[
+                SuperscriptBox["a", "-"], StripOnInput -> False], 
+               TraditionalForm]], {0, 0}, 
+             ImageScaled[{0.5, 0.5}], Automatic, None, Background -> 
+             GrayLevel[1]]}]}, {0.03384563758389261, 0.8}}], 
+       ArrowBox[{2, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 
+        50, 51, 1}]}, 
+      {Arrowheads[{{0.5, 0.5, 
+          GraphicsBox[{
+            GrayLevel[0], 
+            InsetBox[
+             BoxData[
+              FormBox[
+               StyleBox["b", StripOnInput -> False], TraditionalForm]], {0, 
+             0}, 
+             ImageScaled[{0.5, 0.5}], Automatic, None, Background -> 
+             GrayLevel[1]]}]}, {0.03384563758389261, 0.8}}], 
+       ArrowBox[{3, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 
+        66, 67, 1}]}}, 
+     {RGBColor[0, 0, 0.7], 
+      TagBox[
+       TooltipBox[PointBox[1],
+        "V"],
+       Annotation[#, $CellContext`V, "Tooltip"]& ], 
+      TagBox[
+       TooltipBox[PointBox[2],
+        "W"],
+       Annotation[#, $CellContext`W, "Tooltip"]& ], 
+      TagBox[
+       TooltipBox[PointBox[3],
+        "U"],
+       Annotation[#, $CellContext`U, "Tooltip"]& ]}}],
+   Annotation[#, 
+    VertexCoordinateRules -> {{1., 1.7958636867904636`*^-10}, {0., 
+     2.6937955301856953`*^-10}, {2., 0.}}]& ],
+  AspectRatio->Automatic,
+  FrameTicks->None,
+  PlotRange->All,
+  PlotRangePadding->Scaled[0.1]]], "Output",
+ CellChangeTimes->{3.765271619133679*^9, 3.765271681260725*^9, 
+  3.7652717749910097`*^9, 3.766315543261125*^9, 3.766315641346383*^9, 
+  3.766329240911072*^9, 3.7663293458775578`*^9, 3.766329859768124*^9, 
+  3.7663330879940557`*^9, 3.7666731057560043`*^9, 3.774629436469718*^9},
+ CellLabel->"Out[19]=",ExpressionUUID->"a6b09c6c-a248-45ae-81f1-43ef2d605e29"]
+}, Open  ]],
+
+Cell["\<\
+And we can check whether our assumptions and the claim are compatible with \
+this quiver using the function QSignature. This ensures that if we obtain a \
+successful proof without checking compatibility at every step, then there \
+also exists a (maybe different) proof that uses only compatible expressions.\
+\>", "Text",
+ CellChangeTimes->{{3.765271700402729*^9, 3.765271717293702*^9}, {
+   3.7652723679883432`*^9, 3.7652724048111677`*^9}, {3.765272449563078*^9, 
+   3.7652725657428827`*^9}, {3.766315550299321*^9, 3.76631555209604*^9}, {
+   3.7663325129497433`*^9, 3.76633251458351*^9}, 
+   3.7663330480307417`*^9},ExpressionUUID->"ef5c4df2-48ec-41cd-afb6-\
+0a8b8db53858"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"QSignature", "[", 
+  RowBox[{"assumptions", ",", "Q"}], "]"}]], "Input",
+ CellChangeTimes->{{3.765271719533812*^9, 3.7652717299409723`*^9}, {
+   3.7663156616852703`*^9, 3.7663156704679832`*^9}, {3.766332520356572*^9, 
+   3.7663325215641108`*^9}, 3.766333043926405*^9},
+ CellLabel->"In[20]:=",ExpressionUUID->"1e996985-fd8f-4ffa-be00-70f446608b36"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"{", 
+     RowBox[{"V", ",", "W"}], "}"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"{", 
+     RowBox[{"U", ",", "V"}], "}"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"{", 
+     RowBox[{"V", ",", "V"}], "}"}], "}"}]}], "}"}]], "Output",
+ CellChangeTimes->{
+  3.7652717308183403`*^9, 3.765271777173979*^9, 3.76631556421885*^9, {
+   3.766315648662115*^9, 3.766315670851861*^9}, 3.766329347766046*^9, 
+   3.766329861967752*^9, 3.766333089531528*^9, 3.766334004160159*^9, 
+   3.766673108071279*^9, 3.774629440082992*^9},
+ CellLabel->"Out[20]=",ExpressionUUID->"ed08acbc-694e-443a-a5d7-5c22b14f3d1f"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"QSignature", "[", 
+  RowBox[{"claim", ",", "Q"}], "]"}]], "Input",
+ CellChangeTimes->{{3.76632935578988*^9, 3.766329361694194*^9}, {
+   3.766332523418635*^9, 3.766332524985898*^9}, 3.7663330453054457`*^9},
+ CellLabel->"In[21]:=",ExpressionUUID->"6e183f93-788c-45c2-8c27-0b244a3bb524"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"{", 
+   RowBox[{"U", ",", "W"}], "}"}], "}"}]], "Output",
+ CellChangeTimes->{3.766329362041966*^9, 3.766329863656013*^9, 
+  3.766333090635988*^9, 3.7663340050776052`*^9, 3.766673109006592*^9, 
+  3.77462944095761*^9},
+ CellLabel->"Out[21]=",ExpressionUUID->"583c0a45-45b6-4d44-a064-151e28546806"]
+}, Open  ]],
+
+Cell["\<\
+The result of this function is the signature of each of the input polynomials \
+given as a list of pairs. In the case of the zero polynomial (for which no \
+signature is defined), a list of all empty paths is returned. If this \
+signature is not empty, the polynomial is compatible with the corresponding \
+quiver.\
+\>", "Text",
+ CellChangeTimes->{{3.765272582111895*^9, 3.765272622472447*^9}, {
+  3.765272706480304*^9, 3.765272762602989*^9}, {3.765273343473611*^9, 
+  3.7652733522756653`*^9}, {3.766315677107271*^9, 3.766315701867489*^9}, {
+  3.766332538566716*^9, 
+  3.76633255447379*^9}},ExpressionUUID->"90d45c29-157d-4358-835e-\
+942d6a2281da"],
+
+Cell["\<\
+All of the computations described above can also be done all at once by \
+calling the method Certify[assumptions, claims, Q], which takes some \
+assumptions, one or more claims and a quiver Q and then first of all \
+determines whether the assumptions and claims are indeed compatible with Q. \
+If this is the case,  a Groebner basis is computed, the claims are reduced \
+with this Groebner basis and the reduced claims as well as a linear \
+combination of the claims in terms of the assumptions is returned. Hence, we \
+can replicate all the computations that we have done so far with the command\
+\>", "Text",
+ CellChangeTimes->{{3.765272845466847*^9, 3.765272970592902*^9}, {
+   3.7652733636473207`*^9, 3.765273487524724*^9}, {3.766315732487194*^9, 
+   3.7663157345389967`*^9}, {3.766331150885715*^9, 3.766331153168953*^9}, 
+   3.774629462965479*^9},ExpressionUUID->"f3dd2d66-2f73-4b39-a60f-\
+5155b992c2f7"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Certify", "[", 
+  RowBox[{"assumptions", ",", "claim", ",", "Q", ",", 
+   RowBox[{"Info", "\[Rule]", "True"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.765273490452969*^9, 3.7652734982129307`*^9}, {
+  3.76631574345765*^9, 3.7663157576477413`*^9}, {3.7746299844945107`*^9, 
+  3.774630017466092*^9}, {3.774630060686564*^9, 3.774630088492688*^9}},
+ CellLabel->"In[44]:=",ExpressionUUID->"aeb0dbe1-2007-4727-861a-94fe7561c944"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["\<\"Using the following monomial ordering:\"\>"], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630088985038*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"ad67f1ab-6581-4788-9ac3-25a1f26fc01e"],
+
+Cell[BoxData["\<\"\\!\\(\\*RowBox[{\\\"a\\\"}]\\) < \
+\\!\\(\\*SuperscriptBox[\\\"a\\\", \\\"-\\\"]\\) < \
+\\!\\(\\*RowBox[{\\\"b\\\"}]\\) < \\!\\(\\*SuperscriptBox[\\\"b\\\", \
+\\\"-\\\"]\\)\"\>"], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.7746300889992237`*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"e9e685ad-6dc3-4bb7-9572-208bf15048b1"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"\\nInterreduced the input from \"\>", "\[InvisibleSpace]", "3",
+    "\[InvisibleSpace]", "\<\" polynomials to \"\>", "\[InvisibleSpace]", "3",
+    "\[InvisibleSpace]", "\<\".\\n\"\>"}],
+  SequenceForm[
+  "\nInterreduced the input from ", 3, " polynomials to ", 3, ".\n"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089013391*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"b0e94107-1aa3-4538-82ec-b4ae4c80a5d4"],
+
+Cell[BoxData["\<\"Computing a (partial) Groebner basis and reducing the \
+claim...\\n\"\>"], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089021817*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"607cc309-88a5-4b13-a303-1a034b53a64e"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Starting iteration \"\>", "\[InvisibleSpace]", "1", 
+   "\[InvisibleSpace]", "\<\"...\\n\"\>"}],
+  SequenceForm["Starting iteration ", 1, "...\n"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089030208*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"987a55f6-c3f8-4d98-aeb3-0273b5318d04"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"G has \"\>", "\[InvisibleSpace]", "3", 
+   "\[InvisibleSpace]", "\<\" elements in the beginning.\"\>"}],
+  SequenceForm["G has ", 3, " elements in the beginning."],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089038248*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"7ca7bdcb-c4f5-46de-99b5-82d0ec6b1167"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{
+  "5", "\[InvisibleSpace]", "\<\" ambiguities in total (computation took \
+\"\>", "\[InvisibleSpace]", "0.002955`", "\[InvisibleSpace]", "\<\")\"\>"}],
+  SequenceForm[5, " ambiguities in total (computation took ", 0.002955, ")"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.77463008904624*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"6f2d2680-707b-4fd0-b719-d42fd9471d1f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Removed \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" ambiguities in \"\>", "\[InvisibleSpace]", 
+   "0.00015`"}],
+  SequenceForm["Removed ", 0, " ambiguities in ", 0.00015],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089054037*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"20bfc3d9-fa7b-4583-8e87-778cda66e348"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Generating S-polys: \"\>", "\[InvisibleSpace]", "0.005991`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" in total)\"\>"}],
+  SequenceForm["Generating S-polys: ", 0.005991, " (", 2, " in total)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089061651*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"1e5fa9e7-6b2d-47d0-859c-8c63f70359c3"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Reducing S-polys: \"\>", "\[InvisibleSpace]", "0.000346`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" remaining)\"\>"}],
+  SequenceForm["Reducing S-polys: ", 0.000346, " (", 2, " remaining)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089068965*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"3d7615f4-1f4b-496a-bf5d-8aa2db098fac"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"The second reduction took \"\>", "\[InvisibleSpace]", 
+   "0.209027`"}],
+  SequenceForm["The second reduction took ", 0.209027],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089172307*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"3e94a454-a402-41ce-8f6d-0be48b1506bc"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Iteration \"\>", "\[InvisibleSpace]", "1", 
+   "\[InvisibleSpace]", "\<\" finished. G has now \"\>", "\[InvisibleSpace]", 
+   "5", "\[InvisibleSpace]", "\<\" elements\\n\"\>"}],
+  SequenceForm["Iteration ", 1, " finished. G has now ", 5, " elements\n"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089178535*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"6963bfe7-c4cb-4fcd-9e06-1d88ac1690e7"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Starting iteration \"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\"...\\n\"\>"}],
+  SequenceForm["Starting iteration ", 2, "...\n"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089184272*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"7a31d5e1-8635-4a31-845c-71fabc47f8e6"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"G has \"\>", "\[InvisibleSpace]", "5", 
+   "\[InvisibleSpace]", "\<\" elements in the beginning.\"\>"}],
+  SequenceForm["G has ", 5, " elements in the beginning."],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089189817*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"96eb34c0-b2e7-46ef-a93f-5bffb797463c"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{
+  "15", "\[InvisibleSpace]", "\<\" ambiguities in total (computation took \
+\"\>", "\[InvisibleSpace]", "0.007939`", "\[InvisibleSpace]", "\<\")\"\>"}],
+  SequenceForm[15, " ambiguities in total (computation took ", 0.007939, ")"],
+  
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.7746300891951513`*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"788ff43d-e3ab-45bf-9440-78402b980527"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Removed \"\>", "\[InvisibleSpace]", "10", 
+   "\[InvisibleSpace]", "\<\" ambiguities in \"\>", "\[InvisibleSpace]", 
+   "0.000253`"}],
+  SequenceForm["Removed ", 10, " ambiguities in ", 0.000253],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089200295*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"bad0095d-cc5e-493a-908a-43aac30d955c"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Generating S-polys: \"\>", "\[InvisibleSpace]", "0.005783`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" in total)\"\>"}],
+  SequenceForm["Generating S-polys: ", 0.005783, " (", 2, " in total)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089205597*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"546c7a21-99c8-46f9-9b19-638b0f35eaa4"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Reducing S-polys: \"\>", "\[InvisibleSpace]", "0.000251`", 
+   "\[InvisibleSpace]", "\<\" (\"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" remaining)\"\>"}],
+  SequenceForm["Reducing S-polys: ", 0.000251, " (", 2, " remaining)"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.7746300892107773`*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"22654ac2-8e76-4f72-a725-c814271b1bfb"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"The second reduction took \"\>", "\[InvisibleSpace]", 
+   "0.129771`"}],
+  SequenceForm["The second reduction took ", 0.129771],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089347869*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"0777d3d5-fb1b-4f5b-a47f-b8a04ecda0bc"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Iteration \"\>", "\[InvisibleSpace]", "1", 
+   "\[InvisibleSpace]", "\<\" finished. G has now \"\>", "\[InvisibleSpace]", 
+   "6", "\[InvisibleSpace]", "\<\" elements\\n\"\>"}],
+  SequenceForm["Iteration ", 1, " finished. G has now ", 6, " elements\n"],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089354723*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"1e70cac9-8f38-4040-bf80-0ab80a486e67"],
+
+Cell[BoxData["\<\"Rewriting the cofactors has started...\"\>"], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089360269*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"78f647a1-9af0-460f-a443-b7f89547045d"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Rewriting the cofactors took in total \"\>", 
+   "\[InvisibleSpace]", "0.141713`"}],
+  SequenceForm["Rewriting the cofactors took in total ", 0.141713],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089497658*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"15c979c3-b1da-4bbc-815e-599ae993eb8a"],
+
+Cell[BoxData["\<\"\\nRewriting the linear combination in terms of the \
+assumptions has started...\\n\"\>"], "Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.774630089504541*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"cc98770a-552f-49ab-99d3-9ccc0288e157"],
+
+Cell[BoxData["\<\"Done! All claims were successfully reduced to 0.\"\>"], \
+"Print",
+ CellChangeTimes->{{3.766673212890038*^9, 3.766673232068899*^9}, {
+  3.774629468193049*^9, 3.774629490656611*^9}, {3.774629974962118*^9, 
+  3.774630018667963*^9}, {3.7746300615169783`*^9, 3.77463008951073*^9}},
+ CellLabel->
+  "During evaluation of \
+In[44]:=",ExpressionUUID->"c5bc8ce5-9107-4fb0-9a09-871ec7ad859a"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"{", 
+       RowBox[{"V", ",", "W"}], "}"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"{", 
+       RowBox[{"U", ",", "V"}], "}"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"{", 
+       RowBox[{"V", ",", "V"}], "}"}], "}"}]}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"{", 
+     RowBox[{"U", ",", "W"}], "}"}], "}"}], ",", "0", ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"a", ",", 
+       RowBox[{
+        RowBox[{"-", "b"}], "+", 
+        RowBox[{"b", "**", 
+         SuperscriptBox["b", "-"], "**", "b"}]}], ",", "1"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"-", 
+        RowBox[{"a", "**", "b", "**", 
+         SuperscriptBox["b", "-"], "**", 
+         SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+       RowBox[{
+        RowBox[{"-", "b"}], "+", 
+        RowBox[{"b", "**", 
+         SuperscriptBox["b", "-"], "**", "b"}]}], ",", "1"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"a", ",", 
+       RowBox[{
+        RowBox[{"-", 
+         RowBox[{
+          SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+          SuperscriptBox["b", "-"]}]}], "+", 
+        RowBox[{
+         SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+         SuperscriptBox["b", "-"], "**", 
+         SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+         SuperscriptBox["b", "-"]}]}], ",", "b"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"-", "1"}], ",", 
+       RowBox[{
+        RowBox[{"-", "a"}], "+", 
+        RowBox[{"a", "**", 
+         SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+       RowBox[{"b", "**", 
+        SuperscriptBox["b", "-"], "**", 
+        SuperscriptBox["a", "-"], "**", "a", "**", "b", "**", 
+        SuperscriptBox["b", "-"], "**", "b"}]}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"1", ",", 
+       RowBox[{
+        RowBox[{"-", "a"}], "+", 
+        RowBox[{"a", "**", 
+         SuperscriptBox["a", "-"], "**", "a"}]}], ",", 
+       RowBox[{"b", "**", 
+        SuperscriptBox["b", "-"], "**", "b"}]}], "}"}]}], "}"}]}], 
+  "}"}]], "Output",
+ CellChangeTimes->{{3.7666732133480253`*^9, 3.766673232670034*^9}, {
+  3.7746294686929493`*^9, 3.774629491193653*^9}, {3.774629975446145*^9, 
+  3.774630018682263*^9}, {3.774630061531455*^9, 3.774630089516904*^9}},
+ CellLabel->"Out[44]=",ExpressionUUID->"5f93ffa6-7efc-450e-8ec4-6f731849038c"]
+}, Open  ]],
+
+Cell["\<\
+And, similarly as before we see that the claim can be reduced to 0 and \
+multiplying out the linear combinations yields\
+\>", "Text",
+ CellChangeTimes->{{3.765273517073246*^9, 3.7652735405392227`*^9}, {
+  3.766315774972707*^9, 
+  3.7663157773885183`*^9}},ExpressionUUID->"08fede20-9b0b-459b-bd94-\
+7c560f34047b"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"MultiplyOut", "[", 
+   RowBox[{"%", "[", 
+    RowBox[{"[", "4", "]"}], "]"}], "]"}], "===", "claim"}]], "Input",
+ CellChangeTimes->{{3.765273542234074*^9, 3.76527355932368*^9}, {
+  3.7663157717598963`*^9, 3.7663158244063272`*^9}, {3.766673228782666*^9, 
+  3.766673228825058*^9}},
+ CellLabel->"In[45]:=",ExpressionUUID->"8c1c13c8-d120-4e25-8adb-69a628c388ba"],
+
+Cell[BoxData["True"], "Output",
+ CellChangeTimes->{{3.765273551617331*^9, 3.765273565164633*^9}, {
+   3.766315786200992*^9, 3.766315823125972*^9}, 3.766329871542757*^9, 
+   3.76633310077211*^9, 3.766334015702751*^9, {3.7666732239584*^9, 
+   3.766673234901923*^9}, 3.774630098960413*^9},
+ CellLabel->"Out[45]=",ExpressionUUID->"8043d0b5-a3bf-43bd-bd64-12638f9743c2"]
+}, Open  ]]
+},
+WindowSize->{1073, 888},
+WindowMargins->{{Automatic, 62}, {Automatic, 0}},
+Magnification:>1.5 Inherited,
+FrontEndVersion->"11.3 for Mac OS X x86 (32-bit, 64-bit Kernel) (March 5, \
+2018)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{
+ "Info23774636228-7628232"->{
+  Cell[2995, 69, 274, 5, 69, "Print",ExpressionUUID->"37527912-c77b-42d7-8306-a9f2f55b342e",
+   CellTags->"Info23774636228-7628232"]}
+ }
+*)
+(*CellTagsIndex
+CellTagsIndex->{
+ {"Info23774636228-7628232", 80384, 1945}
+ }
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[558, 20, 944, 15, 122, "Text",ExpressionUUID->"e69b07d1-3a0b-4dc0-a85b-30745c7dcbe7"],
+Cell[CellGroupData[{
+Cell[1527, 39, 837, 14, 78, "Input",ExpressionUUID->"396554f2-5318-4777-944c-bbbece7b42c6"],
+Cell[CellGroupData[{
+Cell[2389, 57, 603, 10, 95, "Print",ExpressionUUID->"5530b3f3-d94f-410c-b635-63cd49926735"],
+Cell[2995, 69, 274, 5, 69, "Print",ExpressionUUID->"37527912-c77b-42d7-8306-a9f2f55b342e",
+ CellTags->"Info23774636228-7628232"]
+}, Open  ]]
+}, Open  ]],
+Cell[3296, 78, 3400, 85, 576, "Text",ExpressionUUID->"0c4a58ef-abe0-488c-96b0-c7dba93c1c86"],
+Cell[CellGroupData[{
+Cell[6721, 167, 521, 10, 46, "Input",ExpressionUUID->"73d5142e-3d4b-4923-80f1-fd884e78d5e4"],
+Cell[7245, 179, 572, 11, 36, "Print",ExpressionUUID->"71420bdf-81e2-4179-a506-158d55859dbe"]
+}, Open  ]],
+Cell[7832, 193, 1212, 23, 123, "Text",ExpressionUUID->"8af3bfec-134d-458f-9410-05d39e9854c3"],
+Cell[9047, 218, 535, 10, 88, "Text",ExpressionUUID->"0bc9d951-04e2-4d23-baa6-b7485d72e561"],
+Cell[9585, 230, 291, 5, 46, "Input",ExpressionUUID->"b551d9f4-41fb-4229-9863-f62fdbae0795"],
+Cell[9879, 237, 502, 9, 122, "Text",ExpressionUUID->"bcc38410-0408-4621-bf1c-aef5697405e0"],
+Cell[10384, 248, 591, 10, 46, "Input",ExpressionUUID->"dc6cc8dd-ef83-4215-9cdc-e21cc3482412"],
+Cell[10978, 260, 314, 7, 88, "Text",ExpressionUUID->"ce129549-9ca4-466c-8285-1d25ebfea068"],
+Cell[CellGroupData[{
+Cell[11317, 271, 383, 10, 46, "Input",ExpressionUUID->"c710409e-3b9c-4856-a0dd-cf597bc9fffa"],
+Cell[11703, 283, 354, 7, 36, "Print",ExpressionUUID->"cc4ebf2a-4358-4e5e-bceb-7ac638f29ff9"]
+}, Open  ]],
+Cell[12072, 293, 666, 17, 90, "Text",ExpressionUUID->"53200103-07a5-4159-aac2-5887ec66b41b"],
+Cell[12741, 312, 697, 12, 122, "Text",ExpressionUUID->"df481b88-b781-4664-95b6-95c1135e43b6"],
+Cell[13441, 326, 234, 4, 46, "Input",ExpressionUUID->"1abd8fa1-eba3-4b14-b675-0cc2f3db925e"],
+Cell[13678, 332, 1207, 24, 123, "Text",ExpressionUUID->"93145cce-e44b-4cac-9a02-692678aae0ea"],
+Cell[14888, 358, 850, 22, 78, "Input",ExpressionUUID->"bad71cbc-604e-4ca4-abae-ca0be15c28ee"],
+Cell[15741, 382, 382, 8, 122, "Text",ExpressionUUID->"3f3683b5-e8a3-489d-91c4-93adae7f3cf0"],
+Cell[16126, 392, 3408, 54, 1019, "Text",ExpressionUUID->"f6160de0-36c8-43f3-8056-7c5250acac25"],
+Cell[CellGroupData[{
+Cell[19559, 450, 592, 11, 46, "Input",ExpressionUUID->"f7ea0bbf-fd3c-4745-b328-e509d56fb3ba"],
+Cell[CellGroupData[{
+Cell[20176, 465, 525, 11, 36, "Print",ExpressionUUID->"879b2700-560e-40c0-9ccf-c98407472f35"],
+Cell[20704, 478, 588, 12, 36, "Print",ExpressionUUID->"14f1f4e5-a3d5-4b07-a14b-39209d6df71f"],
+Cell[21295, 492, 608, 12, 36, "Print",ExpressionUUID->"87d56d78-80a9-48a7-a300-13f355370ee0"],
+Cell[21906, 506, 604, 12, 36, "Print",ExpressionUUID->"2fb55210-c09b-4176-9c62-a51a0cc7bf9a"],
+Cell[22513, 520, 491, 11, 36, "Print",ExpressionUUID->"00d1ac13-4d78-4da1-8c98-2de22eed5e15"],
+Cell[23007, 533, 614, 12, 66, "Print",ExpressionUUID->"b01b73cb-b05e-4316-8d84-5c2fa01f9a25"],
+Cell[23624, 547, 593, 13, 36, "Print",ExpressionUUID->"ac1d8b6b-387c-427a-98b5-b6bf68402145"],
+Cell[24220, 562, 608, 12, 36, "Print",ExpressionUUID->"1d874f8f-a2fd-4a1b-8ece-5e1ed33836d3"],
+Cell[24831, 576, 606, 12, 36, "Print",ExpressionUUID->"7cc1b44d-4edb-432b-968b-343bd4202e0f"],
+Cell[25440, 590, 489, 11, 36, "Print",ExpressionUUID->"220b140e-bab0-4d34-b180-640cd49c3515"],
+Cell[25932, 603, 614, 12, 66, "Print",ExpressionUUID->"7ae37f9d-1e2a-40e0-b2c1-a35f959fdd34"],
+Cell[26549, 617, 591, 13, 36, "Print",ExpressionUUID->"c7253348-efda-4f3a-8e76-844c8dc9447b"],
+Cell[27143, 632, 610, 12, 36, "Print",ExpressionUUID->"4d7f54ed-1db5-44bc-9b80-04c191bc2f57"],
+Cell[27756, 646, 606, 12, 36, "Print",ExpressionUUID->"0dda2ad8-e333-4b9a-af4c-73530f6e235b"],
+Cell[28365, 660, 352, 6, 36, "Print",ExpressionUUID->"1991771b-2a85-472b-8fd5-d08b5955f489"],
+Cell[28720, 668, 511, 11, 36, "Print",ExpressionUUID->"8a1006bd-d133-420e-a6bf-d33a6b369640"]
+}, Open  ]]
+}, Open  ]],
+Cell[29258, 683, 485, 7, 53, "Text",ExpressionUUID->"d5d0b615-b6d2-487a-afde-4f0ff3906eaf"],
+Cell[CellGroupData[{
+Cell[29768, 694, 268, 4, 46, "Input",ExpressionUUID->"9aabdb55-cc35-4bb1-8dc5-0a53a62c79a8"],
+Cell[30039, 700, 1972, 51, 146, "Output",ExpressionUUID->"6f9fb118-ce03-4e1f-825e-6051e37ccf6f"]
+}, Open  ]],
+Cell[32026, 754, 820, 14, 157, "Text",ExpressionUUID->"31aeb2fc-6d3d-48a0-bf60-62395e2fc44a"],
+Cell[CellGroupData[{
+Cell[32871, 772, 179, 2, 46, "Input",ExpressionUUID->"38596d5d-f653-4b07-95b9-94b2c5442802"],
+Cell[33053, 776, 5562, 152, 332, "Output",ExpressionUUID->"0d951eee-bea6-4ace-a79e-a08e42361c3a"]
+}, Open  ]],
+Cell[38630, 931, 878, 21, 89, "Text",ExpressionUUID->"a30c7d4a-0dbf-42b1-9645-199f5fae0798"],
+Cell[CellGroupData[{
+Cell[39533, 956, 356, 7, 46, "Input",ExpressionUUID->"1dbd754e-18f5-4cfb-8545-1c072f4de49b"],
+Cell[39892, 965, 709, 14, 52, "Output",ExpressionUUID->"919cf1ad-28f6-4714-8385-996302deb65a"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[40638, 984, 453, 8, 46, "Input",ExpressionUUID->"bebeb587-45ab-46c2-90c2-14287e55ddec"],
+Cell[41094, 994, 1493, 39, 84, "Output",ExpressionUUID->"c15e0794-21a7-49de-be4b-626708783308"]
+}, Open  ]],
+Cell[42602, 1036, 193, 3, 53, "Text",ExpressionUUID->"64437e1b-32a7-41fb-a8fb-056f80a21c1e"],
+Cell[CellGroupData[{
+Cell[42820, 1043, 442, 8, 46, "Input",ExpressionUUID->"fb979ad8-8179-4a78-ba88-5ea76592dbe8"],
+Cell[43265, 1053, 524, 12, 52, "Output",ExpressionUUID->"df48f5e6-bacb-4378-8990-26c92da7f2cf"]
+}, Open  ]],
+Cell[43804, 1068, 1025, 17, 260, "Text",ExpressionUUID->"b1d83451-b5f4-4a97-8445-293476ac2faa"],
+Cell[44832, 1087, 690, 13, 46, "Input",ExpressionUUID->"9b69b624-319d-4afe-9727-e01a2a61ceac"],
+Cell[45525, 1102, 283, 7, 53, "Text",ExpressionUUID->"63e9974a-c89d-42ff-9c4c-6ab6c82e02a4"],
+Cell[CellGroupData[{
+Cell[45833, 1113, 353, 6, 46, "Input",ExpressionUUID->"608781a3-def2-4cb2-8c85-fe55a060ec6d"],
+Cell[46189, 1121, 381, 5, 52, "Output",ExpressionUUID->"821203ab-41c1-4b8a-a4d4-3ff1698e53da"]
+}, Open  ]],
+Cell[46585, 1129, 255, 6, 53, "Text",ExpressionUUID->"d854ac8c-ff88-4e8b-b60c-580c07787343"],
+Cell[CellGroupData[{
+Cell[46865, 1139, 408, 6, 46, "Input",ExpressionUUID->"df2d8f19-93b5-4d43-aa4b-47b56ab2ac0b"],
+Cell[47276, 1147, 676, 13, 52, "Output",ExpressionUUID->"4c812039-41a5-4a34-9058-131cb62e5604"]
+}, Open  ]],
+Cell[47967, 1163, 621, 11, 122, "Text",ExpressionUUID->"22500d10-fd55-4916-b5ca-5d8516b2b02d"],
+Cell[CellGroupData[{
+Cell[48613, 1178, 407, 7, 46, "Input",ExpressionUUID->"d8579a82-0fa8-426c-afc9-1fe9d6cbab4b"],
+Cell[49023, 1187, 1993, 56, 146, "Output",ExpressionUUID->"1033ccd6-269a-4d19-93a9-22a6b1cb3b59"]
+}, Open  ]],
+Cell[51031, 1246, 533, 9, 122, "Text",ExpressionUUID->"33639a09-442e-49d8-b18a-2abd70b03685"],
+Cell[CellGroupData[{
+Cell[51589, 1259, 379, 7, 46, "Input",ExpressionUUID->"367b6762-a296-495e-8437-8a4cbfd0f144"],
+Cell[51971, 1268, 399, 5, 52, "Output",ExpressionUUID->"ed76aeb0-4605-40ec-bd9c-6208cf161b7c"]
+}, Open  ]],
+Cell[52385, 1276, 546, 10, 157, "Text",ExpressionUUID->"cb6509f1-cdc0-423d-b784-1cafcc04085d"],
+Cell[52934, 1288, 822, 20, 46, "Input",ExpressionUUID->"ba956d31-0270-4217-b58a-4261e7e3a6c9"],
+Cell[53759, 1310, 191, 3, 53, "Text",ExpressionUUID->"25b9bc0f-e3a3-467e-a6be-e1e6540cdd80"],
+Cell[CellGroupData[{
+Cell[53975, 1317, 208, 3, 46, "Input",ExpressionUUID->"413abd86-753f-419c-9bac-71588517d6f6"],
+Cell[54186, 1322, 4305, 99, 58, "Output",ExpressionUUID->"a6b09c6c-a248-45ae-81f1-43ef2d605e29"]
+}, Open  ]],
+Cell[58506, 1424, 684, 11, 157, "Text",ExpressionUUID->"ef5c4df2-48ec-41cd-afb6-0a8b8db53858"],
+Cell[CellGroupData[{
+Cell[59215, 1439, 371, 6, 46, "Input",ExpressionUUID->"1e996985-fd8f-4ffa-be00-70f446608b36"],
+Cell[59589, 1447, 667, 17, 52, "Output",ExpressionUUID->"ed08acbc-694e-443a-a5d7-5c22b14f3d1f"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[60293, 1469, 308, 5, 46, "Input",ExpressionUUID->"6e183f93-788c-45c2-8c27-0b244a3bb524"],
+Cell[60604, 1476, 335, 7, 52, "Output",ExpressionUUID->"583c0a45-45b6-4d44-a064-151e28546806"]
+}, Open  ]],
+Cell[60954, 1486, 658, 12, 157, "Text",ExpressionUUID->"90d45c29-157d-4358-835e-942d6a2281da"],
+Cell[61615, 1500, 919, 14, 226, "Text",ExpressionUUID->"f3dd2d66-2f73-4b39-a60f-5155b992c2f7"],
+Cell[CellGroupData[{
+Cell[62559, 1518, 447, 7, 46, "Input",ExpressionUUID->"aeb0dbe1-2007-4727-861a-94fe7561c944"],
+Cell[CellGroupData[{
+Cell[63031, 1529, 389, 6, 36, "Print",ExpressionUUID->"ad67f1ab-6581-4788-9ac3-25a1f26fc01e"],
+Cell[63423, 1537, 526, 9, 36, "Print",ExpressionUUID->"e9e685ad-6dc3-4bb7-9572-208bf15048b1"],
+Cell[63952, 1548, 667, 13, 95, "Print",ExpressionUUID->"b0e94107-1aa3-4538-82ec-b4ae4c80a5d4"],
+Cell[64622, 1563, 418, 7, 66, "Print",ExpressionUUID->"607cc309-88a5-4b13-a303-1a034b53a64e"],
+Cell[65043, 1572, 543, 11, 66, "Print",ExpressionUUID->"987a55f6-c3f8-4d98-aeb3-0273b5318d04"],
+Cell[65589, 1585, 560, 11, 36, "Print",ExpressionUUID->"7ca7bdcb-c4f5-46de-99b5-82d0ec6b1167"],
+Cell[66152, 1598, 620, 12, 36, "Print",ExpressionUUID->"6f2d2680-707b-4fd0-b719-d42fd9471d1f"],
+Cell[66775, 1612, 588, 12, 36, "Print",ExpressionUUID->"20bfc3d9-fa7b-4583-8e87-778cda66e348"],
+Cell[67366, 1626, 643, 12, 36, "Print",ExpressionUUID->"1e5fa9e7-6b2d-47d0-859c-8c63f70359c3"],
+Cell[68012, 1640, 641, 12, 36, "Print",ExpressionUUID->"3d7615f4-1f4b-496a-bf5d-8aa2db098fac"],
+Cell[68656, 1654, 524, 11, 36, "Print",ExpressionUUID->"3e94a454-a402-41ce-8f6d-0be48b1506bc"],
+Cell[69183, 1667, 649, 12, 66, "Print",ExpressionUUID->"6963bfe7-c4cb-4fcd-9e06-1d88ac1690e7"],
+Cell[69835, 1681, 543, 11, 66, "Print",ExpressionUUID->"7a31d5e1-8635-4a31-845c-71fabc47f8e6"],
+Cell[70381, 1694, 560, 11, 36, "Print",ExpressionUUID->"96eb34c0-b2e7-46ef-a93f-5bffb797463c"],
+Cell[70944, 1707, 628, 13, 36, "Print",ExpressionUUID->"788ff43d-e3ab-45bf-9440-78402b980527"],
+Cell[71575, 1722, 592, 12, 36, "Print",ExpressionUUID->"bad0095d-cc5e-493a-908a-43aac30d955c"],
+Cell[72170, 1736, 643, 12, 36, "Print",ExpressionUUID->"546c7a21-99c8-46f9-9b19-638b0f35eaa4"],
+Cell[72816, 1750, 643, 12, 36, "Print",ExpressionUUID->"22654ac2-8e76-4f72-a725-c814271b1bfb"],
+Cell[73462, 1764, 524, 11, 36, "Print",ExpressionUUID->"0777d3d5-fb1b-4f5b-a47f-b8a04ecda0bc"],
+Cell[73989, 1777, 649, 12, 66, "Print",ExpressionUUID->"1e70cac9-8f38-4040-bf80-0ab80a486e67"],
+Cell[74641, 1791, 389, 6, 36, "Print",ExpressionUUID->"78f647a1-9af0-460f-a443-b7f89547045d"],
+Cell[75033, 1799, 548, 11, 36, "Print",ExpressionUUID->"15c979c3-b1da-4bbc-815e-599ae993eb8a"],
+Cell[75584, 1812, 434, 7, 95, "Print",ExpressionUUID->"cc98770a-552f-49ab-99d3-9ccc0288e157"],
+Cell[76021, 1821, 400, 7, 36, "Print",ExpressionUUID->"c5bc8ce5-9107-4fb0-9a09-871ec7ad859a"]
+}, Open  ]],
+Cell[76436, 1831, 2460, 70, 177, "Output",ExpressionUUID->"5f93ffa6-7efc-450e-8ec4-6f731849038c"]
+}, Open  ]],
+Cell[78911, 1904, 322, 7, 88, "Text",ExpressionUUID->"08fede20-9b0b-459b-bd94-7c560f34047b"],
+Cell[CellGroupData[{
+Cell[79258, 1915, 393, 8, 46, "Input",ExpressionUUID->"8c1c13c8-d120-4e25-8adb-69a628c388ba"],
+Cell[79654, 1925, 365, 5, 52, "Output",ExpressionUUID->"8043d0b5-a3bf-43bd-bd64-12638f9743c2"]
+}, Open  ]]
+}
+]
+*)
+
