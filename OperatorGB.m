@@ -52,7 +52,7 @@ ApplyRules::usage="ApplyRules[exp,G] reduces the expression exp using polynomial
 LeadingTerm::usage="Leading term of the polynomial w.r.t. the specified monomial ordering."
 DegLex::usage="Degree Lexicographic order"
 WeightedDegLex::usage="Weighted Degree Lexicographic order"
-Weight::usage="A list {w1,w2,...} defining weights on the variables for the weighted graded lexicographic order. Then the weight w1 corresponds to the first variable in the input list of SetUpRing, w2 to the second one and so on."
+Weight::usage="A list {w1,w2,...} defining weights on the variables for the weighted graded lexicographic order. The weight w1 corresponds to the first variable in the input list of SetUpRing, w2 to the second one and so on."
 SortedQ::usage="SortedQ[M1,M2] is a binary function working on the set of all words that can be built from the alphabet of variables given in SetUpRing. It decides, when given two words M1 and M2 as input, which of them is larger. SortedQ[M1,M2] returns True if M1 \[LessEqual] M2 and False otherwise.
 
 M1 and M2 have to be given in form of lists containig only elements from the list(s) X (and Y) that where used in the call of the method SetUpRing. For example, if X = {x,y,z} then M1 could be of the form {x,x,y,z} and M2 could be {y,z,x,y}.
@@ -98,23 +98,27 @@ ToNonCommutativeMultiply[poly_]:= poly//.{Prod[]->1, Prod[a_]->Times[a], Prod[a_
 (*Setting up the ring*)
 
 
-SetUpRing[vars_List]:= (
+SetUpRing[vars_List,OptionsPattern[{Info->True}]]:= (
 WordOrder = vars;
 SortedQ := DegLex;
-Print[Sequence@@Map[ToString[#,StandardForm]<>" < "&,vars[[;;-2]]] <> ToString[vars[[-1]],StandardForm]];
+If[OptionValue[Info],
+	Print[Sequence@@Map[ToString[#,StandardForm]<>" < "&,vars[[;;-2]]] <> ToString[vars[[-1]],StandardForm]];
+];
 );
 
 
-SetUpRing[knowns_List,unknowns_List]:= Module[{string},
+SetUpRing[knowns_List,unknowns_List,OptionsPattern[{Info->True}]]:= 
+Module[{string},
 	WordOrder = Join[knowns,unknowns]; 
 	Knowns = knowns; 
 	Unknowns = unknowns;
 	SortedQ := MultiLex;
-	
-	string = Sequence@@Map[ToString[#,StandardForm]<>" < "&,knowns[[;;-2]]] <> ToString[knowns[[-1]],StandardForm];
-	string = string <> " << ";
-	string = string <> Sequence@@Map[ToString[#,StandardForm]<>" < "&,unknowns[[;;-2]]] <> ToString[unknowns[[-1]],StandardForm];
-	Print[string];
+	If[OptionValue[Info],
+		string = Sequence@@Map[ToString[#,StandardForm]<>" < "&,knowns[[;;-2]]] <> ToString[knowns[[-1]],StandardForm];
+		string = string <> " << ";
+		string = string <> Sequence@@Map[ToString[#,StandardForm]<>" < "&,unknowns[[;;-2]]] <> ToString[unknowns[[-1]],StandardForm];
+		Print[string];
+	];
 ]
 
 
@@ -359,7 +363,7 @@ Module[{selected,i,amb,result,f,t},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*S-Polynomials*)
 
 
@@ -395,7 +399,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Gr\[ODoubleDot]bner basis*)
 
 
@@ -608,7 +612,7 @@ Module[{cofactorPolies,toDelete,toDelete1, toDelete2, spolTerms,t,t1,t2,spolPoli
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*F4*)
 
 
@@ -624,6 +628,7 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactor
 	cofactors = {};
 
 	G = ToProd/@ideal;
+	G = DeleteCases[G,0];
 	MakeMonic[G];
 
 	oldlength = Length[G];
@@ -822,7 +827,7 @@ Module[{i,t,rules},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Gr\[ODoubleDot]bner basis without cofactors*)
 
 
@@ -944,12 +949,15 @@ Remainder[poly_, lt:{_,_List}]:=
 
 
 CreateRedSys[polies_List]:=
-	Map[CreateRedSys,polies]
+	DeleteCases[Map[CreateRedSys,polies],{}]
 
 
 CreateRedSys[p_]:=
 Module[{lt,poly},
 	poly = ToProd[p];
+	If[poly===0,
+		Return[{}]
+	];
 	lt = LeadingTerm[poly];
 	{lt[[2]], Expand[-1/lt[[1]]*Remainder[poly,lt]]}
 ]
@@ -1153,6 +1161,7 @@ Module[{monomials,m,results,i,begin,end,comb,vertices},
 	(*base case: only one mononmial*)
 	If[Length[monomials] === 1,
 			m = monomials[[1]];
+			If[m===0,Throw[{}]];
 			(*empty monomial = Prod[] \[Rule] is compatible; Return all empty paths*)
 			If[Length[m]===0, 
 				vertices = Sort[DeleteDuplicates[Flatten[Q[[All,2;;3]]]]];
@@ -1194,6 +1203,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	maxiter = OptionValue[MaxIter];
 	
 	assumptions = ToProd/@assumptionsInput;
+	assumptions = DeleteCases[assumptions,0];
 
 	(*check compatibility of the assumptions and the claims*)
 	sigAssump = Map[QSignature[#,Q]&,assumptions];
@@ -1212,15 +1222,17 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	];
 
 	(*set up the ring*)
-	Print["Using the following monomial ordering:"];
+	If[info,
+		Print["Using the following monomial ordering:"]
+	];
 	If[OptionValue[MultiLex],
 		knowns = DeleteDuplicates[If[Head[claims]===List,
 					Cases[Q[[All,1]],Alternatives@@Flatten[Map[#/.Alternatives[Plus,Times,NonCommutativeMultiply]->List&,claims]]],
 					Cases[Q[[All,1]],Alternatives@@Flatten[claims/.Alternatives[Plus,Times,NonCommutativeMultiply]->List]]
 					]];
 		unknowns = DeleteDuplicates[Cases[Q[[All,1]],var_/;!MemberQ[knowns,var]]];
-		SetUpRing[knowns,unknowns],
-		SetUpRing[DeleteDuplicates[Q[[All,1]]]]
+		SetUpRing[knowns,unknowns,Info->info],
+		SetUpRing[DeleteDuplicates[Q[[All,1]]],Info->info]
 	];
 
 	(*make ideal monic*)
@@ -1228,7 +1240,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	
 	(*interreduce the generators*)
 	{assumptionsRed,redCofactors} = Interreduce[assumptions,InputProd->True];
-	If[info, Print["\nInterreduced the input from ", Length[assumptionsInput], " polynomials to ", Length[assumptionsRed], ".\n"]];
+	If[info, Print["\nInterreduced the input from ", Length[assumptions], " polynomials to ", Length[assumptionsRed], ".\n"]];
 	
 	(*compute the Groebner basis and reduce the claims*)
 	If[info, Print["Computing a (partial) Groebner basis and reducing the claim...\n"]];
