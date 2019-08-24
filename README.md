@@ -16,9 +16,23 @@ Changes compared to version 1.0.0:
   * Got rid of complicated data structure ReductionSystem and cleaned code up
   * Just 4 fun: implemented (terribly slow) F4 that can trace cofactors
   ---------
+  Changes since last meeting:
+  * Mathematica:
+    - Uploaded Big Hartwig sheet
+ * Sage:
+   - Changed data structure (tuple -> string); now Sage outperforms Mathematica
+   - Implemented Certify (but without the Quiver stuff)
+  ________
+  TODO:
   * Compute minimal Groebner basis (Thm. 5.3.10 in PhD thesis)
-  * F4:
-      - Improve performance
   * Discuss F5 criteria
-  * New record for BigHartwig: Interreduced system; multilex order; 8 iterations, MaxDeg: 15, Criterion: True, Parallel: False => 5 sec
+  * Chain criterion
+  * Certify: only rewrite used cofactors
+  * Mathematica:
+    - adapt Documentation
+  * Sage:
+    - Interreduction
+    - adapt RedcuedForm 
+    - Quiver
+  
   
