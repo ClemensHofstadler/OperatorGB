@@ -19,6 +19,7 @@ Changes compared to version 1.0.0:
   Changes since last meeting:
   * Mathematica:
     - Uploaded Big Hartwig sheet
+    - Uploaded examples from the paper "Formal proofs of operator identities..."
  * Sage:
    - Changed data structure (tuple -> string); now Sage outperforms Mathematica
    - Implemented Certify (but without the Quiver stuff)
