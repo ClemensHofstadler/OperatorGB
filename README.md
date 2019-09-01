@@ -28,6 +28,7 @@ Changes since last meeting:
     - Implemented Interreduction
     - Implemented/Improved Normalform computation
     - Certify now only rewrites the cofactors actually appearing in the certificate
+    - Best timings for Big Hartwig: Compute GB: 2.5 sec, Certify: 6.2 sec 
   ________
 TODO:
   * Compute minimal Groebner basis (Thm. 5.3.10 in PhD thesis)
