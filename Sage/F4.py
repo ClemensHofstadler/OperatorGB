@@ -3,10 +3,12 @@
 F4
 ================
 
-TODO Description
+Package to compute noncommutative Gröbner bases in the free Algebra over QQ
+together with tracing of cofactors.
+
 AUTHOR:
 
-- Clemens Hofstadler (2017-08-08)
+- Clemens Hofstadler (2019-07-08)
 
 """
 
@@ -37,7 +39,7 @@ Knowns = []
 Unknowns = []
 SortedQ = None
 ############################################################################
-# polynomial datastructure
+# NCMonomial
 ############################################################################
 class NCMonomial:
     def __init__(self,coeff,monomial,intern = False):
@@ -59,33 +61,37 @@ class NCMonomial:
   
                 self.mon =  mon
                 self.coeff = coeff
-    
+############################################################################
     def copy(self):
         return NCMonomial(self.coeff,copy(self.mon),intern=True)
-    
+############################################################################
     def __lt__(self,other):
         return SortedQ(self.mon,other.mon)
-
+############################################################################
     def __repr__(self):
         return "(" + str(self.coeff) + ", " + self.mon + ")"
-    
+############################################################################
     def __eq__(self,other):
         return self.mon == other.mon and self.coeff == other.coeff
-    
+############################################################################
     def __hash__(self):
         return hash(self.mon)
-
+############################################################################
     def __mul__(self,other):
-        return NCMonomial(self.coeff*other.coeff,self.mon[:-1] + other.mon,intern = True)
-
+        if other in QQ:
+            self.coeff *= other
+            return self
+        else:
+            return NCMonomial(self.coeff*other.coeff,self.mon[:-1] + other.mon,intern = True)
+############################################################################
     def toNormal(self):
         s = str(self.coeff)
         s += self.mon[:-1]
-
         F = FreeAlgebra(QQ,len(WordOrder),WordOrder)
         return F(s)
-
-
+############################################################################
+# NCPoly
+############################################################################
 class NCPoly:
     def __init__(self,f,*args):
         if args:
@@ -97,43 +103,43 @@ class NCPoly:
             monomials = sorted(monomials)
             self.lt = monomials[-1]
             self.tail = monomials[:-1]
-    
+############################################################################
     def copy(self):
         return NCPoly(self.lt.copy(),[mon.copy() for mon in self.tail])
-    
+############################################################################
     def __repr__(self):
         s = "(" + str(self.lt) + ", ["
         for m in self.tail:
             s += str(m) + ", "
             s = s[:-2] + "])"
         return s
-    
+############################################################################
     def __eq__(self,other):
         if len(self.tail) != len(other.tail):
             return False
         return self.lt == other.lt and all([m1 == m2 for (m1,m2) in zip(self.tail,other.tail)])
-    
+############################################################################
     def makeMonic(self):
         lc = self.lt.coeff
         if lc != 1:
             self.lt.coeff = 1
             for m in self.tail:
                 m.coeff /= lc
-
+############################################################################
     def lmul(self,m):
         f = self.copy()
         f.lt.mon = m[:-1] + f.lt.mon
         for mon in f.tail:
             mon.mon = m[:-1] + mon.mon
         return f
-
+############################################################################
     def rmul(self,m):
         f = self.copy()
         f.lt.mon += m[1:]
         for mon in f.tail:
             mon.mon += m[1:]
         return f
-
+############################################################################
     def toNormal(self):
         return self.lt.toNormal() + sum([_.toNormal() for _ in self.tail])
 ############################################################################
@@ -141,7 +147,7 @@ class NCPoly:
 ############################################################################
 def SetUpRing(vars,unknowns = None,Info=True):
     if unknowns != None:
-        return __SetUpRing__(vars,unknowns)
+        return __SetUpRing__(vars,unknowns,Info=Info)
     
     global WordOrder, SortedQ
     WordOrder = [str(v) for v in vars]
@@ -150,8 +156,8 @@ def SetUpRing(vars,unknowns = None,Info=True):
         s = ""
         for v in WordOrder:
             s += v + " < "
-        print(s[:-3])
-
+        print s[:-3]
+############################################################################
 def __SetUpRing__(knowns,unknowns,Info=True):
     global WordOrder, Knowns, Unknowns, SortedQ
     Knowns = [str(v) for v in knowns]
@@ -166,7 +172,7 @@ def __SetUpRing__(knowns,unknowns,Info=True):
         s += "< "
         for v in Unknowns:
             s += v + " < "
-        print(s[:-3])
+        print s[:-3]
 ############################################################################
 # monomial order
 ############################################################################
@@ -187,8 +193,7 @@ def DegLex(a,b):
 
     else:
         return la < lb
-
-
+############################################################################
 def MultiLex(a,b):
     a_vars = a.split('*')
     b_vars = b.split('*')
@@ -203,7 +208,6 @@ def MultiLex(a,b):
         return False
 
     return DegLex(a,b)
-
 ############################################################################
 # ambiguities
 ############################################################################
@@ -304,7 +308,7 @@ def DeleteRedundant(amb,Info=True):
 ############################################################################
 # S-polies
 ############################################################################
-def CheckResolvability(G,oldlength=0,Criterion=True,MaxDeg=-1,Info=True,Sorted=False):
+def CheckResolvability(G,oldlength=0,Criterion=True,MaxDeg=-1,Info=True):
     words = [(f.lt.mon,i) for (i,f) in enumerate(G)]
     start = time()
     amb = GenerateAmbiguities(words[:oldlength],words[oldlength:],MaxDeg=MaxDeg)
@@ -314,8 +318,6 @@ def CheckResolvability(G,oldlength=0,Criterion=True,MaxDeg=-1,Info=True,Sorted=F
     
     if Criterion:
         amb = DeleteRedundant(amb,Info=Info)
-    if Sorted:
-        print("Sorting the ambiguities is not implemented yet")
 
     spol = [SPoly(a,G[a.i],G[a.j]) for a in amb]
     spol = flatten(spol)
@@ -329,11 +331,76 @@ def SPoly(amb,fi,fj):
     mon_a = NCMonomial(1,amb.A,intern=True)
     mon_c = NCMonomial(1,amb.C,intern=True)
     if isinstance(amb,Inclusion):
-        return [[fi,(one,fi,one)],
-                [fj.lmul(amb.A).rmul(amb.C),(mon_a,fj,mon_c)]]
+        f = fj.lmul(amb.A).rmul(amb.C)
+        if fi == f:
+            return []
+        else:
+            return [[fi,(one,fi,one)],
+                    [f,(mon_a,fj,mon_c)]]
     else:
-        return [[fi.rmul(amb.C),(one,fi,mon_c)],
-                [fj.lmul(amb.A),(mon_a,fj,one)]]
+        f1 = fi.rmul(amb.C)
+        f2 = fj.lmul(amb.A)
+        if f1 == f2:
+            return []
+        else:
+            return [[f1,(one,fi,mon_c)],
+                    [f2,(mon_a,fj,one)]]
+############################################################################
+# F4
+############################################################################
+def F4(cofactors,ideal,MaxIter=10,N=2,Ignore=0,MaxDeg=-1,Criterion=True,Info=True,OutputProd=False):
+    if not isinstance(ideal[0],NCPoly):
+        G = map(NCPoly,ideal)
+    else:
+        G = ideal
+
+    for f in G:
+        f.makeMonic()
+    
+    oldlength = len(G)
+    count = 0
+    if Info:
+        print "G has " + str(len(G)) + " elements in the beginning."
+
+    spol = CheckResolvability(G,Ignore,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info)
+
+    while count < MaxIter:
+        start = time()
+        while len(spol) > 0:
+            n = min(N,len(spol))
+            FPlus = Reduction(spol[:n],G)
+            spol = spol[n:]
+            F = [f for (f,c) in FPlus]
+            G += F
+            cofactors += FPlus
+            print str(len(spol)).ljust(10)
+            sys.stdout.write("\033[F")
+   
+        end = time()
+        if Info:
+            print "Reduction took: %.5f" % (end-start)
+        if len(G) == oldlength:
+            print "All S-polynomials could be reduced to 0."
+            break
+        
+        count += 1
+        if Info:
+            print "Iteration " + str(count) + " finished. G has now " + str(len(G)) + " elements.\n"
+        if count < MaxIter:
+            spol = CheckResolvability(G,oldlength,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info)
+            oldlength = len(G)
+    
+    if OutputProd:
+        return G
+    else:
+        start = time()
+        if Info:
+            print "Rewriting the cofactors has started."
+        __rewriteCofactors__(cofactors,ideal)
+        end = time()
+        if Info:
+            print "Rewriting the cofactors took in total %.5f\n" %(end-start)
+        return [f.toNormal() for f in G]
 ############################################################################
 # Reduction & Symbolic Preprocessing
 ############################################################################
@@ -403,10 +470,102 @@ def Matrix2Poly(M,columns,F,cofactorsF):
  
     return FPlus
 ############################################################################
-def rewriteCofactors(cofactors,I):
+# Normal form computation
+############################################################################
+def ReducedForm(G_Input,f,InputProd=False):
+    if not InputProd:
+        G = map(NCPoly,G_Input)
+        p = NCPoly(f)
+    else:
+        G = G_Input
+        p = f
 
+    cofactors = []
+    (F,columns,cofactorsF) = __symbolicPreprocessingRed__(p,G)
+    columns = sorted(columns,reverse=True)
+    cofactorsF = [(NCMonomial(1,'*',intern=True),p,NCMonomial(1,'*'))] + cofactorsF
+    F = [p] + F
+    M = SetUpMatrix(F,columns)
+    M = M.rref()
+    T = M[:,len(columns):] #transformation matrix
+    R = M[:,:len(columns)]
+    
+    pos = T.nonzero_positions_in_column(0)
+    if len(pos) == 0:
+        if InputProd:
+            return (p,[])
+        else:
+            return (f,[])
+            
+    pos = pos[-1]
+    coeffs = T[pos,:]
+    coeff_f = coeffs[0,0]
+    coeffs = [c/coeff_f for c in coeffs.list()]
+
+    #reduction to 0
+    if len(R.nonzero_positions_in_row(pos)) == 0:
+        normal_form = 0
+        if InputProd:
+            cofactors = [(NCMonomial(-c*l.coeff,l.mon,intern=True),g,r) for (c,(l,g,r)) in zip(coeffs[1:],cofactorsF[1:]) if c != 0]
+        else:
+            cofactors = [(-c*l.toNormal(),g.toNormal(),r.toNormal()) for (c,(l,g,r)) in zip(coeffs[1:],cofactorsF[1:]) if c != 0]
+
+    #reduction to normal form != 0
+    else:
+        (normal_form,cofactors) = Matrix2Poly(M[pos,:],columns,[],cofactorsF)[0]
+        normal_form = normal_form.toNormal()/coeff_f
+        if InputProd:
+            normal_form = NCPoly(normal_form)
+            cofactors = [(NCMonomial(-l.coeff/coeff_f,l.mon,intern=True),g,r) for (l,g,r) in cofactors[1:]]
+        else:
+            cofactors = [(-l.toNormal()/coeff_f,g.toNormal(),r.toNormal()) for (l,g,r) in cofactors[1:]]
+
+    return (normal_form,cofactors)
+############################################################################
+def IdealMembership(G_Input,f,InputProd=False):
+    if not InputProd:
+        G = map(NCPoly,G_Input)
+    else:
+        G = G_Input
+
+    p = NCPoly(f)
+    cofactors = []
+    (F,columns,cofactors) = __symbolicPreprocessingRed__(p,G)
+    columns = sorted(columns,reverse=True)
+    M = SetUpMatrix(F,columns)[:,:len(columns)]
+    b = vector(SetUpMatrix([p],columns).list()[:-1])
+    try:
+        coeffs = M.solve_left(b)
+    except:
+        return False
+
+    if not InputProd:
+        cofactors = [(c*l.toNormal(),g.toNormal(),r.toNormal()) for (c,(l,g,r)) in zip(coeffs,cofactors) if c != 0]
+    else:
+        cofactors = [(NCMonomial(c*l.coeff,l.mon,intern=True),g,r) for (c,(l,g,r)) in zip(coeffs,cofactors) if c != 0]
+
+    return cofactors
+############################################################################
+# Rewriting cofactors
+############################################################################
+def Rewrite(linear_comb,cofactors):
+    certificate = []
+    d = {f:c for (f,c) in cofactors}
+    for (a,f,b) in linear_comb:
+        try:
+            cofactors_f = d[f]
+            certificate += [(a*l,g,r*b) for (l,g,r) in cofactors_f]
+        except:
+            certificate.append((a,f,b))
+    return certificate
+############################################################################
+def __rewriteCofactors__(cofactors,I):
+    start = time()
     cofactors[:] = [(f.toNormal(),map(tripleToNormal,c)) for (f,c) in cofactors]
+    end = time()
     cofactors_done = {cofactors[0][0]:cofactors[0][1]}
+    print "convert data structure %.5f" %(end-start)
+    
     for (i,(f,c)) in enumerate(cofactors):
         if i == 0:
             continue
@@ -417,82 +576,11 @@ def rewriteCofactors(cofactors,I):
                 cofactors_temp += [(a*l,h,r*b) for (l,h,r) in cofactors_g]
             else:
                 cofactors_temp.append((a,g,b))
-                
+        
         cofactors[i] = (f,cofactors_temp)
         cofactors_done[f] = cofactors_temp
-
-def tripleToNormal(t):
-    return (t[0].toNormal(),t[1].toNormal(),t[2].toNormal())
-
-def copyTriple(t):
-    return (t[0].copy(),t[1].copy(),t[2].copy())
 ############################################################################
-# F4
-############################################################################
-def F4(cofactors,ideal,MaxIter=10,N=2,Ignore=0,MaxDeg=-1,Criterion=True,Info=True,Sorted=False,OutputProd=False):
-    
-    if not isinstance(ideal[0],NCPoly):
-        G = map(NCPoly,ideal)
-    else:
-        G = ideal
-
-    for f in G:
-        f.makeMonic()
-    
-    oldlength = len(G)
-    count = 0
-    if Info:
-        print "G has " + str(len(G)) + " elements in the beginning."
-
-    spol = CheckResolvability(G,Ignore,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info,Sorted=Sorted)
-
-    while count < MaxIter:
-        start = time()
-        while len(spol) > 0:
-            n = min(N,len(spol))
-            FPlus = Reduction(spol[:n],G)
-            spol = spol[n:]
-            F = [f for (f,c) in FPlus]
-            G += F
-            cofactors += FPlus
-            print str(len(spol)).ljust(10)
-            sys.stdout.write("\033[F")
-   
-        end = time()
-        if Info:
-            print "Reduction took: %.5f" % (end-start)
-        if len(G) == oldlength:
-            print "All S-polynomials could be reduced to 0."
-            break
-        
-        count += 1
-        if Info:
-            print "Iteration " + str(count) + " finished. G has now " + str(len(G)) + " elements.\n"
-        if count < MaxIter:
-            spol = CheckResolvability(G,oldlength,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info,Sorted=Sorted)
-            oldlength = len(G)
-            
-    if OutputProd:
-        return G
-    else:
-        start = time()
-        if Info:
-            print "Rewriting the cofactors has started."
-        rewriteCofactors(cofactors,ideal)
-        end = time()
-        if Info:
-            print "Rewriting the cofactors took in total %.5f\n" %(end-start)
-        return [f.toNormal() for f in G]
-            
-############################################################################
-# additional stuff
-############################################################################
-def flatten(l):
-    return [item for sublist in l for item in sublist]
-############################################################################
-# Reduction
-############################################################################
-def SymbolicPreprocessingRed(h,G):
+def __symbolicPreprocessingRed__(h,G):
     T = {m for m in h.tail}
     T.add(h.lt)
     lt = [(g.lt.mon,g) for g in G]
@@ -511,39 +599,51 @@ def SymbolicPreprocessingRed(h,G):
                 T.update({m for m in g.tail}-columns)
                 break
     return [F,columns,cofactors]
-
-def ReducedForm(G_Input,f,InputProd=False):
-    if not InputProd:
-        G = map(NCPoly,G_Input)
+############################################################################
+# Interreduction
+############################################################################
+def Interreduce(F,InputProd=False):
+    if InputProd:
+        G = F
     else:
-        G = G_Input
-    p = NCPoly(f)
-    cofactors = []
-    (F,columns,cofactors) = SymbolicPreprocessingRed(p,G)
-    M = SetUpMatrix(F,columns)[:,:len(columns)]
-    b = vector(SetUpMatrix([p],columns).list()[:-1])
-    try:
-        coeffs = M.solve_left(b)
-    except:
-        return False
+        G = [NCPoly(f) for f in F]
 
-    cofactors = [(c*l.toNormal(),g.toNormal(),r.toNormal()) for (c,(l,g,r)) in zip(coeffs,cofactors)]
-    return cofactors
+    cofactors = [[(NCMonomial(1,'*',intern=True),g,NCMonomial(1,'*',intern=True))] for g in G]
+    i = 0
+    s = len(G)
+    while i < s:
+        if G[i] is None:
+            i += 1
+            continue
+        (normal_form,linear_comb) = ReducedForm([g for (j,g) in enumerate(G) if j != i and g is not None],G[i],InputProd=True)
 
-def Rewrite(linear_comb,cofactors):
-    certificate = []
-    d = {f:c for (f,c) in cofactors}
-    for (a,f,b) in linear_comb:
-        try:
-            cofactors_f = d[f]
-            certificate += [(a*l,g,r*b) for (l,g,r) in cofactors_f]
-        except:
-            certificate.append((a,f,b))
-    return certificate
+        #normal form is 0
+        if type(normal_form) is int:
+            G[i] = None
+            cofactors[i] = None
+        #normal form != 0
+        elif not normal_form == G[i]:
+            newPart = []
+            for (a,f,b) in linear_comb:
+                pos = G.index(f)
+                newPart += [(a*l*(-1),h,r*b) for (l,h,r) in cofactors[pos]]
+            cofactors[i] += newPart
+            lc = normal_form.lt.coeff
+            if lc != 1:
+                normal_form.makeMonic()
+                cofactors[i] = [(NCMonomial(a.coeff/lc,a.mon,intern=True),f,b) for (a,f,b) in cofactors[i]]
+            G[i] = normal_form
+            i = 0
+        else:
+            i += 1
+
+    G = [g for g in G if g is not None]
+    cofactors = [c for c in cofactors if c is not None]
+    return (G,cofactors)
 ############################################################################
 # Certify
 ############################################################################
-def Certify(assumptions,claims,Q,N=2,MaxIter=10,MaxDeg=-1,MultiLex=False,Info=False,Criterion=True):
+def Certify(assumptionsInput,claims,Q,N=2,MaxIter=10,MaxDeg=-1,MultiLex=False,Info=True,Criterion=True):
     
     #setting up the ring
     if Info:
@@ -561,21 +661,26 @@ def Certify(assumptions,claims,Q,N=2,MaxIter=10,MaxDeg=-1,MultiLex=False,Info=Fa
     else:
         SetUpRing(Q,Info=Info)
 
-    G = [NCPoly(f) for f in assumptions]
+    assumptions = [NCPoly(f) for f in assumptionsInput]
     
     #keep track of leading coefficients
-    lc = [f.lt.coeff for f in G]
-    #lc = {f:c for (f,c) in zip(assumptions,lc)}
+    lc = [f.lt.coeff for f in assumptions]
+    for f in assumptions:
+        f.makeMonic()
 
     #interreduce TODO
+    (assumptionsRed,cofactorsRed) = Interreduce(assumptions,InputProd=True)
+    if Info:
+        print "\nInterreduced the input from " + str(len(assumptions)) + " polynomials to " + str(len(assumptionsRed)) + ".\n"
 
     #compute Groebner basis
     if Info:
-        print "\nComputing a (partial) Groebner basis and reducing the claim...\n"
+        print "Computing a (partial) Groebner basis and reducing the claim...\n"
     cofactors = []
     i = 0
     linear_comb = false
     toIgnore = 0
+    G = assumptionsRed
 
     while i < MaxIter and not linear_comb:
         toIgnoreOld = len(G)
@@ -588,11 +693,11 @@ def Certify(assumptions,claims,Q,N=2,MaxIter=10,MaxDeg=-1,MultiLex=False,Info=Fa
         cofactors += cofactors_temp
         #try normal order
         if type(claims) is list:
-            linear_comb = [ReducedForm(G,f,InputProd=True) for f in claims]
+            linear_comb = [IdealMembership(G,f,InputProd=True) for f in claims]
             if False in linear_comb:
                     linear_comb = False
         else:
-            linear_comb = ReducedForm(G,claims,InputProd=True)
+            linear_comb = IdealMembership(G,claims,InputProd=True)
 
         #try random orders
         count = 0
@@ -600,11 +705,11 @@ def Certify(assumptions,claims,Q,N=2,MaxIter=10,MaxDeg=-1,MultiLex=False,Info=Fa
             count += 1
             G_rand = sample(G,len(G))
             if type(claims) is list:
-                linear_comb = [ReducedForm(G_rand,f,InputProd=True) for f in claims]
+                linear_comb = [IdealMembership(G_rand,f,InputProd=True) for f in claims]
                 if False in linear_comb:
                     linear_comb = False
             else:
-                linear_comb = ReducedForm(G_rand,claims,InputProd=True)
+                linear_comb = IdealMembership(G_rand,claims,InputProd=True)
 
     #negative outcome
     if not linear_comb:
@@ -615,22 +720,86 @@ def Certify(assumptions,claims,Q,N=2,MaxIter=10,MaxDeg=-1,MultiLex=False,Info=Fa
     start = time()
     if Info:
         print "Rewriting the linear combination in terms of the assumptions..."
-    rewriteCofactors(cofactors,G[:len(assumptions)])
+    certificate = __rewriteCertify__(linear_comb,cofactors)
     G = [f.toNormal() for f in G]
-    #also take care of leading coefficients
-    lc = {f/c:c for (f,c) in zip(assumptions,lc)}
+    #rewrite in terms of assumptions and not of the interreduced assumptions and take care of leading coefficients
+    cofactorsRed = {g.toNormal():map(tripleToNormal,c) for (g,c) in zip(assumptionsRed,cofactorsRed)}
+    lc = {f/c:c for (f,c) in zip(assumptionsInput,lc)}
     if type(claims) is list:
-        certificate = [Rewrite(l,cofactors) for l in linear_comb]
         for i in range(len(certificate)):
-            certificate[i] = [(a/lc[f],lc[f]*f,b) for (a,f,b) in certificate[i]]
+            cofactors_temp = []
+            for (a,f,b) in certificate[i]:
+                cofactors_temp += [(a*l,h,r*b) for (l,h,r) in cofactorsRed[f]]
+            certificate[i] = [(a/lc[f],lc[f]*f,b) for (a,f,b) in cofactors_temp]
     else:
-        certificate = Rewrite(linear_comb,cofactors)
-        certificate = [(a/lc[f],lc[f]*f,b) for (a,f,b) in certificate]
+        cofactors_temp = []
+        for (a,f,b) in certificate:
+            cofactors_temp += [(a*l,h,r*b) for (l,h,r) in cofactorsRed[f]]
+        certificate = [(a/lc[f],lc[f]*f,b) for (a,f,b) in cofactors_temp]
     end = time()
     if Info:
         print "Rewriting the linear combination took in total %.5f." % (end-start)
     if Info:
         print "\nDone! All claims were successfully reduced to 0."
+
+    return certificate
+############################################################################
+def __rewriteCertify__(varsInput,cofactors):
+    if type(varsInput[0]) is list:
+        vars = flatten(varsInput)
+    else:
+        vars = varsInput
+
+    #find all cofactors appearing in the linear combinations
+    occurring = set()
+    toAdd = set()
+    for (l,f,r) in vars:
+        toAdd.update({i for (i,(p,t)) in enumerate(cofactors) if f == p})
+    while len(toAdd) > 0:
+        occurring.update(toAdd)
+        g = [cofactors[i] for i in toAdd]
+        toAdd = set()
+        for (h,t) in g:
+            for (l,f,r) in t:
+                toAdd.update({i for (i,(p,t)) in enumerate(cofactors) if f == p})
+        toAdd.difference_update(occurring)
+
+    if len(occurring) == 0:
+        return map(tripleToNormal,vars)
+
+    occurring = list(occurring)
+    occurring.sort()
+
+    #rewrite the appearing cofactors
+    cofactors_done = {cofactors[occurring[0]][0].toNormal():map(tripleToNormal,cofactors[occurring[0]][1])}
+    for i in occurring[1:]:
+        cofactors_temp = []
+        f = cofactors[i][0].toNormal()
+        t = map(tripleToNormal,cofactors[i][1])
+        for (a,g,b) in t:
+            if g in cofactors_done:
+                cofactors_temp += [(a*l,h,r*b) for (l,h,r) in cofactors_done[g]]
+            else:
+                cofactors_temp.append((a,g,b))
+        cofactors_done[f] = cofactors_temp
+
+    #rewrite the linear combinations
+    if type(varsInput[0]) is list:
+        l = len(varsInput)
+        certificate = [[] for i in range(l)]
+        for i in range(l):
+            for (a,f,b) in map(tripleToNormal,varsInput[i]):
+                if f in cofactors_done:
+                    certificate[i] += [(a*l,g,r*b) for (l,g,r) in cofactors_done[f]]
+                else:
+                    certificate[i].append((a,f,b))
+    else:
+        certificate = []
+        for (a,f,b) in map(tripleToNormal,varsInput):
+            if f in cofactors_done:
+                certificate += [(a*l,g,r*b) for (l,g,r) in cofactors_done[f]]
+            else:
+                certificate.append((a,f,b))
 
     return certificate
 ############################################################################
@@ -659,7 +828,17 @@ def CheckCertificate(certificate,claim,I):
     print "certificate only of elements in I:"
     print all([g in I for (l,g,r) in certificate])
 ############################################################################
+# additional stuff
+############################################################################
+def flatten(l):
+    return [item for sublist in l for item in sublist]
+############################################################################
+def tripleToNormal(t):
+    return (t[0].toNormal(),t[1].toNormal(),t[2].toNormal())
+############################################################################
+def copyTriple(t):
+    return (t[0].copy(),t[1].copy(),t[2].copy())
+############################################################################
 # Stuff to execute
 ############################################################################
 load("/Users/clemenshofstadler/Desktop/OperatorGB/Sage/Examples.py")
-cofactors = []
