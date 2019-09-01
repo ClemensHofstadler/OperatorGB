@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-F4
+Examples
 ================
 
 TODO Description
@@ -51,11 +51,14 @@ rest2 = [-adj_a+adj_a*adj_aa*adj_a,-adj_aa+adj_aa*adj_a*adj_aa,
         -adj_c+adj_c*adj_cc*adj_c,-adj_cc+adj_cc*adj_c*adj_cc,
         -adj_m+adj_m*adj_x*adj_m,-adj_x+adj_x*adj_m*adj_x,
         -adj_q*adj_p+adj_q*adj_p*adj_q*adj_p,q-adj_v*adj_p*adj_a*a,adj_u*adj_q+p*c*adj_c]
-I = pinvA + pinvB + pinvC + rest + rest2
+assumptions = pinvA + pinvB + pinvC + rest + rest2
 claims = [p*q*p-p,
         q*p*q-q,
         adj_a*a*p*q-adj_a*adj_aa*adj_bb*adj_cc*adj_c*adj_cc*adj_c*adj_b*adj_a*adj_aa*adj_a*a,
         q*p*c*adj_c - c*adj_c*adj_cc*adj_c*adj_b*adj_a*adj_aa*adj_a*adj_aa*adj_bb*adj_cc*adj_c
         ]
-SetUpRing(F.gens())
-#SetUpRing(F.gens()[:-4],F.gens()[-4:])
+#certificate =  Certify(I,claims,F.gens(),MaxDeg=15,MultiLex=True)
+############################################################################
+SetUpRing(F.gens()[:-4],F.gens()[-4:])
+cofactors = []
+vars = []
