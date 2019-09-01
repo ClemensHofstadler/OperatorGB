@@ -6,64 +6,108 @@ BeginPackage["OperatorGB`"]
 Global`OperatorGB::usage="A few definitions need to be made by the user. Type ?SetUpRing for more information.";
 
 
+Clear[
+	CoeffQ,Prod,ToProd,ToNonCommutativeMultiply,
+	SetUpRing,
+	LeadingTerm,DegLex,WeightedDegLex,MultiLex,Weight,SortedQ,
+	GenerateAmbiguities,
+	Groebner,
+	F4,
+	ReducedForm,
+	GroebnerWithoutCofactors,ApplyRules,
+	CreateRedSys,ToPoly,Rewrite,MultiplyOut,Interreduce,
+	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
+	adj,
+	Quiver,QSignature,PlotQuiver,
+	Certify
+]
+
+
+(*Non-commutative multiplication*)
 CoeffQ::usage="CoeffQ[k_] should check whether k is in the base ring of the polynomial ring.";
 Prod::usage="Prod[m1,m2,...] represents the non-commutative multiplication.";
 ToProd::usage="Convert a polynomial from the built in non-commutative multiplication to the Prod data structure";
 ToNonCommutativeMultiply::usage="Convert a polynomial from the Prod data structure to the built in non-commutative multiplication";
 
 
+(*SetUpRing*)
 SetUpRing::usage="SetUpRing defines the non-commutative polynomial ring and a monomial order.
 
-This method can be called with one list X = {x1,x2,...,xn} containing all indeterminates the user wants to work with. This then sets up the non-commutative polynomial ring \!\(\*TemplateBox[{},\n\"Rationals\"]\)<X> of non-commutative polynomials in the variables x1,x2,...,xn with rational numbers as coefficients. By default, this also sets up a graded lexicographic order where the indeterminates are ordered in increasing order according to their appearance in the list X, i.e. x1 < x2 < ... < xn.
+This method can be called with one list X = {x1,x2,...,xn} containing all indeterminates the user wants to work with. This then sets up the non-commutative polynomial ring \!\(\*TemplateBox[{},\n\"Rationals\"]\)<X> of non-commutative polynomials in the variables x1,x2,...,xn with rational numbers as coefficients. By default, this also sets up a degree lexicographic order where the indeterminates are ordered in increasing order according to their appearance in the list X, i.e. x1 < x2 < ... < xn.
 
-The user has the option to change the monomial order. The second pre-defined order is a weighted graded lexicographic order. To switch to this order, the user has execute the command SortedQ := WeightedDegLex. Then, additionally, a list of weights {w1,w2,...} named Weight has to be provided. Type ?Weight for more information.
+The user has the option to change the monomial order. The second pre-defined order is a weighted degree lexicographic order. To switch to this order, the user has execute the command SortedQ := WeightedDegLex. Then, additionally, a list of weights {w1,w2,...} named Weight has to be provided. Type ?Weight for more information.
 
 To define an individual order, the user can provide a binary function SortedQ[a,b] working on the set of all words that can be built from the alphabet of indeterminates in X. Type ?SortedQ for more information.
 
-It is also possible to set up a multigraded lexicographic order. To do this, the user has to call SetUpRing with two lists X = {x1,x2,...,xn} and Y = {y1,y2,...,ym} as input. This defines the non-commutative polynomial ring \!\(\*TemplateBox[{},\n\"Rationals\"]\)<X,Y> of non-commutative polynomials in the variables x1,x2,...,xn,y1,y2,...,ym with rational numbers as coefficients. In this case, by default a multigraded lexicographic order is defined, where two monomials M1 and M2 are first compared by their degree only in indeterminates from Y, then by their degree only in indeterminates from X and finally, to break ties, a graded lexicographic order x1 < ... < xn < y1 < ... < ym is used. The multigraded lexicographic order is denoted by x1 < x2 < ... < xn << y1 < y2 < ... < ym.
+It is also possible to set up a multigraded lexicographic order. To do this, the user has to call SetUpRing with two lists X = {x1,x2,...,xn} and Y = {y1,y2,...,ym} as input. This defines the non-commutative polynomial ring \!\(\*TemplateBox[{},\n\"Rationals\"]\)<X,Y> of non-commutative polynomials in the variables x1,x2,...,xn,y1,y2,...,ym with rational numbers as coefficients. In this case, by default a multigraded lexicographic order is defined, where two monomials M1 and M2 are first compared by their degree only in indeterminates from Y, then by their degree only in indeterminates from X and finally, to break ties, a degree lexicographic order x1 < ... < xn < y1 < ... < ym is used. The multigraded lexicographic order is denoted by x1 < x2 < ... < xn << y1 < y2 < ... < ym.
 "
 
 
-Groebner::usage="Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False}]] executes at most maxiter iterations of the Buchberger algorithm to compute
-a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list
-of cofactors is saved in the list cofactors forming a linear combination of the new element."
-
-
-GroebnerWithoutCofactors::usage="GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,Criterion->False}]] executes at most maxiter iterations 
-of the Buchberger algorithm to compute a (partial) Groebner basis of an ideal."
-
-
-MultiplyOut::usage="To multiply out a list of cofactors given in terms of the built in non-commutative multiplication."
-
-
-Rewrite::usage="Rewrite[vars, cofactors] rewrites a linear combination, which is safed in vars, with the elements from cofactors."
-
-
-adj::usage="adj[A] represents the adjoint of the operator A"
-
-
-ReducedForm::usage="ReducedForm[cofactors,G,exp] reduces the expression exp by the elements of G and saves the cofactors of the reduction process in the list cofactors. The argument exp can also
-be a list of expressions, then all expressions are reduced."
-
-
-ApplyRules::usage="ApplyRules[exp,G] reduces the expression exp using polynomials from the set G."
-
-
+(*Ordering*)
 LeadingTerm::usage="Leading term of the polynomial w.r.t. the specified monomial ordering."
 DegLex::usage="Degree Lexicographic order"
 WeightedDegLex::usage="Weighted Degree Lexicographic order"
-Weight::usage="A list {w1,w2,...} defining weights on the variables for the weighted graded lexicographic order. The weight w1 corresponds to the first variable in the input list of SetUpRing, w2 to the second one and so on."
+MultiLex::usage="Multigraded Lexicographic order"
+Weight::usage="A list {w1,w2,...} defining weights on the variables for the weighted degree lexicographic order. The weight w1 corresponds to the first variable in the input list of SetUpRing, w2 to the second one and so on."
 SortedQ::usage="SortedQ[M1,M2] is a binary function working on the set of all words that can be built from the alphabet of variables given in SetUpRing. It decides, when given two words M1 and M2 as input, which of them is larger. SortedQ[M1,M2] returns True if M1 \[LessEqual] M2 and False otherwise.
 
 M1 and M2 have to be given in form of lists containig only elements from the list(s) X (and Y) that where used in the call of the method SetUpRing. For example, if X = {x,y,z} then M1 could be of the form {x,x,y,z} and M2 could be {y,z,x,y}.
 "
 
 
+(*ambiguities*)
+GenerateAmbiguities::usage="GenerateAmbiguities[words] computes all ambigutites among all words in the set 'words'."
+
+
+(*Groebner basis*)
+Groebner::usage="Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]True,Parallel->True,Sorted->False}]] executes at most maxiter iterations of the Buchberger algorithm to compute
+a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list of cofactors is saved in the list cofactors forming a linear combination of the new element. For further information concerning the OptionPatterns
+please see the documentation or the source code."
+
+
+(*F4)*)
+F4::usage="F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]True,Parallel->True,Sorted->False}]] executes at most maxiter iterations of Faugere's F4 algorithm to compute
+a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list of cofactors is saved in the list cofactors forming a linear combination of the new element. For further information concerning the OptionPatterns
+please see the source code."
+
+
+(*Find cofactors*)
+ReducedForm::usage="ReducedForm[cofactors,G,exp] reduces the expression exp by the elements of G and saves the cofactors of the reduction process in the list cofactors. The argument exp can also
+be a list of expressions, then all expressions are reduced."
+
+
+(*Groebner basis without cofactors*)
+GroebnerWithoutCofactors::usage="GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,Criterion->True}]] executes at most maxiter iterations 
+of the Buchberger algorithm to compute a (partial) Groebner basis of an ideal. For further information concerning the OptionPatterns please see the documentation or the source code."
+ApplyRules::usage="ApplyRules[exp,G] reduces the expression exp using polynomials from the set G."
+
+
+(*Additional stuff*)
+CreateRedSys::usage="Converts polynomials into the data structure needed for the Groebner algorithm."
+ToPoly::usage="Converts an element of a reduction system back into a polynomial."
+Rewrite::usage="Rewrite[vars, cofactors] rewrites a linear combination, which is safed in vars, with the elements from cofactors."
+MultiplyOut::usage="To multiply out a list of cofactors given in terms of the built in non-commutative multiplication."
+Interreduce::usage="Interreduce[ideal_] interreduces the polynomials in 'ideal'."
+
+
+(*Collect cofactors*)
+CollectLeft::usage="Tries to collect triples in a cofactor representation having the same left cofactors."
+CollectRight::usage="Tries to collect triples in a cofactor representation having the same right cofactors."
+ExpandLeft::usage=""
+ExpandRight::usage=""
+
+
+(*Adjungate operator definition*)
+adj::usage="adj[A] represents the adjoint of the operator A"
+
+
+(*Quiver*)
 Quiver::usage="Data structure of a Quiver"
 QSignature::usage="QSignature[poly,Q] returns the signature of the polynomial poly w.r.t. the quiver Q (not necessarily with unique lables)"
 PlotQuiver::usage="Plot a quiver Q"
 
 
+(*Certify*)
 Certify::usage="Certifies whether a certain claim is a consequence of some assumptions via Groebner 
 basis computations. Additionally, compatibility with a given quiver is checked."
 
@@ -215,7 +259,7 @@ Module[{i},
 
 (* ::Text:: *)
 (*SortedQ[a_,b_] is a binary function working on the set of all words that can be built from the alphabet of modules defined in CyclicModules. It decides, when given two words as input, which of them is larger. *)
-(*Hence, this function determines the monomial order. By defining an own SortedQ function the user can implement his own monomial order. By default the Degree Lexicographic order is set. It is also possible to switch to a weighted Degreelexicographic order by setting SortedQ := WeightedDegLex. Then the user also has to define a list Weight = {w1,w2,...} where w1 defines the weight for the first module in WordOrder, w2 defines the weight for the second module in WordOrder and so on.*)
+(*Hence, this function determines the monomial order. By defining an own SortedQ function the user can implement his own monomial order. By default the Degree Lexicographic order is set. It is also possible to switch to a weighted Degree Lexicographic order by setting SortedQ := WeightedDegLex. Then the user also has to define a list Weight = {w1,w2,...} where w1 defines the weight for the first module in WordOrder, w2 defines the weight for the second module in WordOrder and so on.*)
 
 
 SortedQ := DegLex;
@@ -256,7 +300,7 @@ Module[{k,min},
 	min = Min[Length[v],Length[w]];
 	Reap[For[k=1,k<min,k++,
 		If[Take[v,-k]===Take[w,k],
-			Sow[Overlap[Join[v,Drop[w,k]],Drop[w,k],Drop[v,-k],{i,j}]]
+			Sow[Overlap[Join[v,Drop[w,k]],Drop[v,-k],Drop[w,k],{i,j}]]
 		]];
 	][[2]]
 ]
@@ -314,8 +358,8 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 
 Transform[Inclusion[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[wi,wj,{},{},i]
 Transform[Inclusion[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[{},{},wi,wj,j]
-Transform[Overlap[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[{},wi,wj,{},i]
-Transform[Overlap[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[wj,{},{},wi,j]
+Transform[Overlap[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[{},wj,wi,{},i]
+Transform[Overlap[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[wi,{},{},wj,j]
 
 
 DeleteRedundantPhD[amb_List]:= 
@@ -373,15 +417,15 @@ Module[{selected,i,amb,result,f,t},
 
 SPoly[amb:_Overlap|_Inclusion,fi_,fj_]:=
 Module[{A,C},
-	C = Prod@@amb[[2]];
-	A = Prod@@amb[[3]];
+	A = Prod@@amb[[2]];
+	C = Prod@@amb[[3]];
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
 			{Prod[fi[[2]],C] - Prod[A,fj[[2]]],
 				{{A,ToPoly[fj],Prod[]},{-Prod[],ToPoly[fi],C}}},
 			(*Inclusion[CBA,C,A]*)
-			{fi[[2]] - Prod[C,fj[[2]],A],
-			{{C,ToPoly[fj],A},{-Prod[],ToPoly[fi],Prod[]}}}
+			{fi[[2]] - Prod[A,fj[[2]],C],
+			{{A,ToPoly[fj],C},{-Prod[],ToPoly[fi],Prod[]}}}
 	]
 ]
 
@@ -393,33 +437,35 @@ Module[{A,C},
 SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
-			Prod[fi[[2]],amb[[2]]] - Prod[amb[[3]],fj[[2]]],
+			Prod[fi[[2]],amb[[3]]] - Prod[amb[[2]],fj[[2]]],
 			(*Inclusion[CBA,C,A]*)
 			fi[[2]] - Prod[amb[[2]],fj[[2]],amb[[3]]]
 	]
 
 
-(* ::Subsection::Closed:: *)
-(*Gr\[ODoubleDot]bner basis*)
+(* ::Subsection:: *)
+(*Groebner basis*)
 
 
 (* ::Text:: *)
-(*Implementation of the Buchberger algorithm to compute a (partial) Groebner basis of the reduction system sys with at most maxiter iterations being executed (default: 10). The return value is a reduction system {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from sys and new elements g1,...,gm. For every new element g, a pair {g, l} is saved in the list cofactors, where l is a list forming a linear combination of g consisting of elements from sys and certain cofactors.*)
+(*Implementation of the Buchberger algorithm to compute a (partial) Groebner basis of the ideal 'ideal' with at most 'maxiter' iterations being executed (default: 10). The return value is a  set of polynomials {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from 'ideal' and new elements g1,...,gm. For every new element g, a pair {g, l} is saved in the list cofactors, where l is a list forming a linear combination of g consisting of elements from 'ideal' and certain cofactors.*)
 (**)
 (*OptionPattern:*)
+(*	- Criterion (default: True): Tries to detect and delete redundant ambiguities during the Groebner basis computation.*)
 (*	- Ignore (default: 0): A non-negative integer that determines how many elements of the input will be ignored during the first computation of the ambiguities. *)
 (*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
-(*	- Info (default: False): Prints information about the computation progress.*)
+(*	- Info (default: True): Prints information about the computation progress.*)
 (*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
 (*	- Sorted (default: False):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
 (*	- OutputProd (default: False): If this OptionPattern is set to True, the output, i.e. the Groebner basis and the list of cofactors, is given in the Prod data structure. Otherwise, Mathematica's*)
 (*	non-commutative multiplication is used.*)
+(*	- Rewrite (default: True): Determines whether the cofactors are rewritten in terms of the generators of the ideal. If not, the cofactors consist of all elements of the returned Groebner basis.*)
 (**)
 
 
 SetAttributes[Groebner,HoldFirst]
 
-Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->False,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
+Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->True,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
 Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -487,12 +533,11 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 
 
 (* ::Text:: *)
-(*CheckResolvability[sys,Info->False,Parallel->True,Sorted->False] returns all S-polynomials from the reduction system sys which can not be reduced to zero. Additionally, *)
-(*for each S-polynomial a list containing the linear combination how the S-polynomial was generated from the elements of sys is returned.*)
+(*CheckResolvability returns all S-polynomials from the reduction system sys which can not be reduced to zero. Additionally, for each S-polynomial a list containing the linear combination how the S-polynomial was generated from the elements of sys is returned.*)
 (*For a description of the OptionPatterns see the documentation of the Groebner method.*)
 
 
-CheckResolvability[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->False,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
+CheckResolvability[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
 Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	info = OptionValue[Info];
 	parallel = OptionValue[Parallel];
@@ -540,7 +585,6 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 
 (* ::Text:: *)
 (*ExtractRules[vars,sys] generates a set of reduction rules out of the reduction system sys with the special feature that the cofactors of the reduction will be sowed whenever such a rule is applied. They can then be reaped using the Reap command.*)
-(*Sys has to consist of pairs {word,func}, which can be obtained using the method CreateRedSys.*)
 
 
 ExtractRules[sys_]:=
@@ -616,9 +660,26 @@ Module[{cofactorPolies,toDelete,toDelete1, toDelete2, spolTerms,t,t1,t2,spolPoli
 (*F4*)
 
 
+(* ::Text:: *)
+(*Implementation of the Faugere's F4 algorithm to compute a (partial) Groebner basis of the ideal 'ideal' with at most 'maxiter' iterations being executed (default: 10). The return value is a  set of polynomials {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from 'ideal' and new elements g1,...,gm. For every new element g, a pair {g, l} is saved in the list cofactors, where l is a list forming a linear combination of g consisting of elements from 'ideal' and certain cofactors.*)
+(**)
+(*OptionPattern:*)
+(*	- N (default:100): The number of critical polynomials which are reduced in one step.*)
+(*	- Criterion (default: True): Tries to detect and delete redundant ambiguities during the Groebner basis computation.*)
+(*	- Ignore (default: 0): A non-negative integer that determines how many elements of the input will be ignored during the first computation of the ambiguities. *)
+(*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
+(*	- Info (default: True): Prints information about the computation progress.*)
+(*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
+(*	- Sorted (default: False):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
+(*	- OutputProd (default: False): If this OptionPattern is set to True, the output, i.e. the Groebner basis and the list of cofactors, is given in the Prod data structure. Otherwise, Mathematica's*)
+(*	non-commutative multiplication is used.*)
+(*	- Rewrite (default: True): Determines whether the cofactors are rewritten in terms of the generators of the ideal. If not, the cofactors consist of all elements of the returned Groebner basis.*)
+(**)
+
+
 SetAttributes[F4,HoldFirst];
 
-F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->False,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
+F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info->True,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
 Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactorsL,lc,a,b,rules},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -669,7 +730,7 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactor
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*Symbolic Preprocessing & Reduction*)
 
 
@@ -729,7 +790,7 @@ Module[{F,M,lt,columns,FPlus,a,c,t1,t2,t3,t4,cofactorsF,A,cofactors,pos,f,rule},
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*Additional stuff*)
 
 
@@ -742,12 +803,12 @@ Monomials[f_]:= (MonomialList[f]/.Times[_,a_]->a)/.Prod->List
 
 SPolyF4[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	If[amb[[0]]=== Overlap,
-			(*Overlap[ABC,C,A]*)
-			If[Prod[fi,amb[[2]]] === Prod[amb[[3]],fj], 
+			(*Overlap[ABC,A,C]*)
+			If[Prod[fi,amb[[3]]] === Prod[amb[[2]],fj], 
 				Sequence@@{},
-				Sequence@@{{Prod[fi,amb[[2]]],{Prod[],fi,Prod[amb[[2]]]}},{Prod[amb[[3]],fj],{Prod[amb[[3]]],fj,Prod[]}}}
+				Sequence@@{{Prod[fi,amb[[3]]],{Prod[],fi,Prod[amb[[3]]]}},{Prod[amb[[2]],fj],{Prod[amb[[2]]],fj,Prod[]}}}
 			],
-			(*Inclusion[CBA,C,A]*)
+			(*Inclusion[ABC,A,C]*)
 			If[fi === Prod[amb[[2]],fj,amb[[3]]], 
 				Sequence@@{},
 				Sequence@@{{fi,{Prod[],fi,Prod[]}},{Prod[amb[[2]],fj,amb[[3]]],{Prod[amb[[2]]],fj,Prod[amb[[3]]]}}}
@@ -755,7 +816,7 @@ SPolyF4[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	]
 
 
-CheckResolvabilityF4[G_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->False,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
+CheckResolvabilityF4[G_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
 Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 
 	info = OptionValue[Info];
@@ -828,23 +889,23 @@ Module[{i,t,rules},
 
 
 (* ::Subsection::Closed:: *)
-(*Gr\[ODoubleDot]bner basis without cofactors*)
+(*Groebner basis without cofactors*)
 
 
 (* ::Text:: *)
-(*Implementation of the Buchberger algorithm to compute a (partial) Groebner basis of the reduction system sys with at most maxiter iterations being executed (default: 10). The return value is a reduction system {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from sys and new elements g1,...,gm. *)
+(*Implementation of the Buchberger algorithm to compute a (partial) Groebner basis of the ideal 'ideal' with at most 'maxiter' iterations being executed (default: 10). The return value is a  set of polynomials {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from 'ideal' and new elements g1,...,gm. *)
 (**)
 (*OptionPattern:*)
+(*	- Criterion (default: True): Tries to detect and delete redundant ambiguities during the Groebner basis computation.*)
+(*	- Ignore (default: 0): A non-negative integer that determines how many elements of the input will be ignored during the first computation of the ambiguities. *)
 (*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
-(*	- Info (default: False): Prints information about the computation progress.*)
+(*	- Info (default: True): Prints information about the computation progress.*)
 (*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
 (*	- Sorted (default: False):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
-(*	-Criterion (default: False): Deletes potentially redundant elements of the Groebner basis during the computation. More specifically, if h | g_i for some g_i in G and spol(h,g_i = 0), then G = G\{g_i} u {h}. This criterion speeds up the computation but yields a different, in general smaller, (partial) Groebner basis.*)
-(*	*)
 (*	*)
 
 
-GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{Ignore->0, MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,Criterion->False}]]:=
+GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{Ignore->0, MaxDeg->Infinity,Info->True,Parallel->True,Sorted->False,Criterion->True}]]:=
 Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sorted,parallel,syslength,i},
 
 	info = OptionValue[Info];
@@ -885,7 +946,7 @@ Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sor
 ]
 
 
-CheckResolvability2[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->False,MaxDeg->Infinity,Info->False,Sorted->False,Parallel->True}]]:=
+CheckResolvability2[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Sorted->False,Parallel->True}]]:=
 Module[{amb,spol,info,t1,t2,lists,rules,words,parallel},
 	info = OptionValue[Info];
 	parallel = OptionValue[Parallel];
@@ -1028,7 +1089,7 @@ Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart},
 	cofactors = Map[{{Prod[],#,Prod[]}}&,G];
 	
 	(*actual interreduction*)
-	While[i < s,
+	While[i <= s,
 		If[G[[i]]===Null,i++;Continue[]];
 		r = Reap[gi = G[[i]]//.Drop[rules,{i}]];
 		If[gi===0,
@@ -1193,11 +1254,11 @@ PlotQuiver[Q:Quiver]:=
 	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Certify*)
 
 
-Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
+Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->True,Parallel->True,Sorted->False,Criterion->True}]]:=
  Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors,k,l,count,assumptionsRed},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
@@ -1208,7 +1269,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	(*check compatibility of the assumptions and the claims*)
 	sigAssump = Map[QSignature[#,Q]&,assumptions];
 	If[MemberQ[sigAssump,{}],
-		Print["The assumption ", Extract[assumptions,Position[sigAssump,{}][[1,1]]]," is not compatible with the quiver."]; Return[$Failed]
+		Print["The assumption ", Extract[assumptionsInput,Position[sigAssump,{}][[1,1]]]," is not compatible with the quiver."]; Return[$Failed]
 	];
 	If[Head[claims] === List,
 		sigClaim = Map[QSignature[#,Q]&,claims];
@@ -1249,12 +1310,14 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	If[Head[claims]===List,zeros = ConstantArray[0,Length[claims]],zeros=0];
 	toIgnore = Length[assumptionsRed];
 	i = 1;
-	If[info,Print["Starting iteration ", i++ ,"...\n"]];
+	If[info,Print["Starting iteration ", i ,"...\n"]];
+	i++;
 	G = Groebner[cofactors,assumptionsRed,1,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],OutputProd->True,Rewrite->False];
 	reduced = ReducedForm[vars,G,claims];
 	While[reduced =!= zeros && i <= maxiter,
 		toIgnoreOld = Length[G];
-		If[info,Print["Starting iteration ", i++ ,"...\n"]];
+		If[info,Print["Starting iteration ", i ,"...\n"]];
+		i++;
 		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],OutputProd->True,Rewrite->False];
 		toIgnore = toIgnoreOld;
 		count = 0;
@@ -1263,14 +1326,10 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 			count++;
 		];
 	];
-	If[info, Print["Rewriting the cofactors has started..."]];
-	t = AbsoluteTiming[RewriteGroebner[cofactors,Info->OptionValue[Info],OutputProd->True]][[1]];
-	If[info, Print["Rewriting the cofactors took in total ", t]];
-	
 	(*rewrite the linear combination*)
-	If[info,
-		Print["\nRewriting the linear combination in terms of the assumptions has started...\n"]];
-	certificate = Rewrite[vars,cofactors,InputProd->True];
+	If[info, Print["Rewriting the cofactors has started..."]];
+	t = AbsoluteTiming[certificate = RewriteCertify[vars,cofactors];][[1]];
+	If[info, Print["Rewriting the cofactors took in total ", t]];
 	
 	(*rewrite in terms of assumptions and not of the interreduced assumptions*)
 	rules = Table[{k_,assumptionsRed[[i]],l_}->
@@ -1295,6 +1354,41 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 ]
 
 
+RewriteCertify[varsInput_,cofactors_]:= Module[
+{a,b,i,j,count,rules,toReduce,occurring,toAdd,g,vars},
+	If[MatchQ[varsInput,{{{_,_,_}...}...}],
+		toReduce = Map[ToProd,varsInput,{3}];
+		vars = Flatten[toReduce,1],
+		toReduce = Map[ToProd,varsInput,{2}];
+		vars = toReduce
+	];
+			
+	toAdd = Position[cofactors[[All,1]],Alternatives@@vars[[All,2]]];
+	occurring = {};
+	(*find all cofactors actually appearing in the certificate*)
+	While[toAdd =!= {},
+		occurring = Join[occurring,toAdd];
+		g = Extract[cofactors,toAdd];
+		toAdd = Flatten[Map[Position[cofactors[[All,1]],Alternatives@@#[[2,All,2]]]&,g],1];
+		toAdd = Complement[toAdd,occurring];
+	];
+	If[Length[occurring] === {},
+		Return[vars]
+	];
+	occurring = Sort[occurring];
+	
+	(*sucessively make reduction rules*)
+	g = cofactors[[occurring[[1,1]]]];
+	rules = {{a__,g[[1]],b__} -> Sequence@@Table[{Prod[Evaluate[a],j[[1]]],j[[2]],Prod[j[[3]],Evaluate[b]]},{j,g[[2]]}]};
+	Do[
+		g = f[[2]]/.rules;
+		AppendTo[rules,{a__,f[[1]],b__} -> Sequence@@Table[{Prod[Evaluate[a],j[[1]]],j[[2]],Prod[j[[3]],Evaluate[b]]},{j,g}]];
+	,{f,Extract[cofactors,occurring[[2;;]]]}];
+	
+	toReduce/.rules
+]
+
+
 (* ::Subsection::Closed:: *)
 (*End*)
 
@@ -1303,8 +1397,8 @@ Copyright[a_String,b___String]:=Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 
 Copyright[
-    "Package OperatorGB version 1.0.1",
-    "Copyright 2019, Institute of Algebra, JKU",
+    "Package OperatorGB version 1.1.1",
+    "Copyright 2019, Institute for Algebra, JKU",
     "written by Clemens Hofstadler"];
 
 
