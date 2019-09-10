@@ -99,8 +99,11 @@ class NCPoly:
             self.tail = args[0]
         else:
             d = f.monomial_coefficients()
-            monomials = [NCMonomial(d[key],key) for key in d.keys()]
-            monomials = sorted(monomials)
+            if d:
+                monomials = [NCMonomial(d[key],key) for key in d.keys()]
+                monomials = sorted(monomials)
+            else:
+                monomials = [NCMonomial(0,'*',intern=True)]
             self.lt = monomials[-1]
             self.tail = monomials[:-1]
 ############################################################################
@@ -111,13 +114,18 @@ class NCPoly:
         s = "(" + str(self.lt) + ", ["
         for m in self.tail:
             s += str(m) + ", "
-            s = s[:-2] + "])"
+        if self.tail:
+            s = s[:-2]
+        s += "])"
         return s
 ############################################################################
     def __eq__(self,other):
         if len(self.tail) != len(other.tail):
             return False
         return self.lt == other.lt and all([m1 == m2 for (m1,m2) in zip(self.tail,other.tail)])
+############################################################################
+    def __hash__(self):
+        return hash((self.lt,) + tuple(self.tail))
 ############################################################################
     def makeMonic(self):
         lc = self.lt.coeff
@@ -138,6 +146,13 @@ class NCPoly:
         f.lt.mon += m[1:]
         for mon in f.tail:
             mon.mon += m[1:]
+        return f
+############################################################################
+    def lrmul(self,l,r):
+        f = self.copy()
+        f.lt.mon = l[:-1] + f.lt.mon + r[1:]
+        for mon in f.tail:
+            mon.mon = l[:-1] + mon.mon + r[1:]
         return f
 ############################################################################
     def toNormal(self):
@@ -221,6 +236,7 @@ class Overlap:
         self.A = A
         self.i = i
         self.j = j
+        self.deg = len(ABC.split('*'))
 
     def __repr__(self):
         return "Overlap(" + str(self.ABC) + ", " + str(self.C) + ", " + str(self.A) + ", (" + str(self.i) + ", " + str(self.j) + "))"
@@ -235,6 +251,7 @@ class Inclusion:
         self.C = C
         self.i = i
         self.j = j
+        self.deg = len(ABC.split('*'))
 
     def __repr__(self):
         return "Inclusion(" + str(self.ABC) + ", " + str(self.A) + ", " + str(self.C) + ", (" + str(self.i) + ", " + str(self.j) + "))"
@@ -249,7 +266,7 @@ def GenerateAmbiguities(words,newPart = None,MaxDeg = -1):
     amb = flatten(amb)
    
     if MaxDeg > 0:
-        amb = [a for a in amb if len(a.ABC.split('*'))-2 <= MaxDeg]
+        amb = [a for a in amb if a.deg-2 <= MaxDeg]
 
     return amb
 ############################################################################
@@ -263,7 +280,7 @@ def __GenerateAmbiguities__(oldPart,newPart,MaxDeg):
     amb = flatten(amb)
     
     if MaxDeg > 0:
-        amb = [a for a in amb if len(a.ABC.split('*'))-2 <= MaxDeg]
+        amb = [a for a in amb if a.deg-2 <= MaxDeg]
 
     return amb
 ############################################################################
@@ -292,8 +309,8 @@ def generateInclusions(a,b):
 ############################################################################
 def DeleteRedundant(amb,Info=True):
     start = time()
-    amb.sort(key=lambda a:len(a.ABC.split('*')),reverse=True)
-    indices = flatten([[a.i,a.j] for a in amb])
+    amb.sort(key=lambda a:a.deg,reverse=True)
+    indices = [k for a in amb for k in (a.i,a.j)]
     i=0
     for k in iter(set(indices)):
         selected = [a for a in amb if max(a.i,a.j)==k]
@@ -308,6 +325,32 @@ def DeleteRedundant(amb,Info=True):
 ############################################################################
 # S-polies
 ############################################################################
+class CritPair:
+    def __init__(self,amb,fi,fj):
+        one = NCMonomial(1,'*',intern=True)
+        mon_a = NCMonomial(1,amb.A,intern=True)
+        mon_c = NCMonomial(1,amb.C,intern=True)
+        self.deg = amb.deg
+        if isinstance(amb,Inclusion):
+            f = fj.lrmul(amb.A,amb.C)
+            if fi == f:
+                self.deg = -1
+            else:
+                self.f = fi
+                self.g = f
+                self.triple_f = (one,fi,one)
+                self.triple_g = (mon_a,fj,mon_c)
+        else:
+            f1 = fi.rmul(amb.C)
+            f2 = fj.lmul(amb.A)
+            if f1 == f2:
+                self.deg = -1
+            else:
+                self.f = f1
+                self.g = f2
+                self.triple_f = (one,fi,mon_c)
+                self.triple_g = (mon_a,fj,one)
+############################################################################
 def CheckResolvability(G,oldlength=0,Criterion=True,MaxDeg=-1,Info=True):
     words = [(f.lt.mon,i) for (i,f) in enumerate(G)]
     start = time()
@@ -319,36 +362,18 @@ def CheckResolvability(G,oldlength=0,Criterion=True,MaxDeg=-1,Info=True):
     if Criterion:
         amb = DeleteRedundant(amb,Info=Info)
 
-    spol = [SPoly(a,G[a.i],G[a.j]) for a in amb]
-    spol = flatten(spol)
-    if Info:
-        print(str(len(spol)) + " critial polynoimals were generated.")
+    critPairs = [CritPair(a,G[a.i],G[a.j]) for a in amb]
+    critPairs = [pair for pair in critPairs if pair.deg != -1]
+    critPairs.sort(key=lambda p: p.deg)
 
-    return spol
-############################################################################
-def SPoly(amb,fi,fj):
-    one = NCMonomial(1,'*',intern=True)
-    mon_a = NCMonomial(1,amb.A,intern=True)
-    mon_c = NCMonomial(1,amb.C,intern=True)
-    if isinstance(amb,Inclusion):
-        f = fj.lmul(amb.A).rmul(amb.C)
-        if fi == f:
-            return []
-        else:
-            return [[fi,(one,fi,one)],
-                    [f,(mon_a,fj,mon_c)]]
-    else:
-        f1 = fi.rmul(amb.C)
-        f2 = fj.lmul(amb.A)
-        if f1 == f2:
-            return []
-        else:
-            return [[f1,(one,fi,mon_c)],
-                    [f2,(mon_a,fj,one)]]
+    if Info:
+        print(str(len(critPairs)) + " S-polynoimals were generated.")
+
+    return critPairs
 ############################################################################
 # F4
 ############################################################################
-def F4(cofactors,ideal,MaxIter=10,N=2,Ignore=0,MaxDeg=-1,Criterion=True,Info=True,OutputProd=False):
+def F4(cofactors,ideal,MaxIter=10,N=-1,Ignore=0,MaxDeg=-1,Criterion=True,Info=True,OutputProd=False):
     if not isinstance(ideal[0],NCPoly):
         G = map(NCPoly,ideal)
     else:
@@ -362,32 +387,32 @@ def F4(cofactors,ideal,MaxIter=10,N=2,Ignore=0,MaxDeg=-1,Criterion=True,Info=Tru
     if Info:
         print "G has " + str(len(G)) + " elements in the beginning."
 
-    spol = CheckResolvability(G,Ignore,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info)
+    critPairs = CheckResolvability(G,Ignore,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info)
 
     while count < MaxIter:
         start = time()
-        while len(spol) > 0:
-            n = min(N,len(spol))
-            FPlus = Reduction(spol[:n],G)
-            spol = spol[n:]
+        while len(critPairs) > 0:
+            F = [pair for pair in critPairs if pair.deg == critPairs[0].deg]
+            critPairs = critPairs[len(F):]
+            FPlus = Reduction(F,G)
             F = [f for (f,c) in FPlus]
             G += F
             cofactors += FPlus
-            print str(len(spol)).ljust(10)
+            print str(len(critPairs)).ljust(10)
             sys.stdout.write("\033[F")
    
         end = time()
         if Info:
             print "Reduction took: %.5f" % (end-start)
         if len(G) == oldlength:
-            print "All S-polynomials could be reduced to 0."
+            print "All S-polynomials could be reduced to 0.\n"
             break
         
         count += 1
         if Info:
             print "Iteration " + str(count) + " finished. G has now " + str(len(G)) + " elements.\n"
         if count < MaxIter:
-            spol = CheckResolvability(G,oldlength,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info)
+            critPairs = CheckResolvability(G,oldlength,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info)
             oldlength = len(G)
     
     if OutputProd:
@@ -405,70 +430,121 @@ def F4(cofactors,ideal,MaxIter=10,N=2,Ignore=0,MaxDeg=-1,Criterion=True,Info=Tru
 # Reduction & Symbolic Preprocessing
 ############################################################################
 def Reduction(L,G):
+    F = [f for pair in L for f in (pair.f,pair.g)]
+    (pivot_rows,pivot_cols,columns,cofactors_G) = SymbolicPreprocessing(F,G)
+    
+    #split ciritcal polynomials in pivot and non-pivot rows
+    start = time()
+    rest_rows = [pair.g for pair in L]
+    for pair in L:
+        f = pair.f
+        if f.lt.mon in pivot_cols:
+            rest_rows.append(f)
+        else:
+            pivot_cols.append(f.lt.mon)
+            pivot_rows.append(f)
+    
+    #seperate pivot and non-pivot columns
+    rest_cols = [NCMonomial(1,m,intern=True) for m in columns if m not in pivot_cols]
+    pivot_cols = [NCMonomial(1,m,intern=True) for m in pivot_cols]
+    pivot_cols.sort(reverse=True)
+    rest_cols.sort(reverse=True)
+    n = len(pivot_rows)
+    m = len(rest_rows)
 
-    (L,cofactorsF) = map(list,zip(*L))
-    (F,columns) = SymbolicPreprocessing(L,G,cofactorsF)
- 
-    columns = sorted(columns,reverse=True)
-    M = SetUpMatrix(F,columns)
-  
-    M = M.rref()
+    columns = {m.mon:i for (i,m) in enumerate(pivot_cols)}
+    columns.update({m.mon:i+2*n for (i,m) in enumerate(rest_cols)})
+    rows = pivot_rows + rest_rows
+
+    (A,B,C,D) = getMatrices(rows,columns,n,m)
     
-    FPlus = Matrix2Poly(M,columns,F,cofactorsF)
-    
+    A_inv = A.rref()[:,n:]
+    CA_inv = C*A_inv
+
+    #bring D - CA^{-1}B in RRef
+    diff(D,CA_inv*B)
+    M = D.rref()
+   #get transformation matrix
+    T = M[:,-m:]
+    M = M[:,:-m]
+
+    #compute polynomials
+    pos = M.nonzero_positions()
+    if len(pos) == 0:
+        return []
+    rank = pos[-1][0]+1
+    FPlus = [[] for i in range(rank)]
+    for (i,j) in pos:
+        FPlus[i].append(NCMonomial(M[i,j],rest_cols[j].mon,intern=True))
+
+    #compute cofactors
+    cofactors = [[] for i in range(rank)]
+    for pair in L:
+        cofactors_G[pair.f] = pair.triple_f
+        cofactors_G[pair.g] = pair.triple_g
+    cofactors_F = [cofactors_G[f] for f in rows]
+    T1 = -T*CA_inv
+    for (i,j) in T1[:rank,:].nonzero_positions():
+        triple = copyTriple(cofactors_F[j])
+        triple[0].coeff *= T1[i,j]
+        cofactors[i].append(triple)
+    for (i,j) in T[:rank,:].nonzero_positions():
+        triple = copyTriple(cofactors_F[j+n])
+        triple[0].coeff *= T[i,j]
+        cofactors[i].append(triple)
+
+    FPlus = [(NCPoly(f[0],f[1:]),c) for (f,c) in zip(FPlus,cofactors)]
+
     return FPlus
 ############################################################################
-def SymbolicPreprocessing(L,G,cofactorsF):
-    F = copy(L)
-    T = {m for f in F for m in f.tail}
-    lt = [(f.lt.mon,f) for f in G]
-    columns = {f.lt for f in F}
+def SymbolicPreprocessing(F,G):
+    columns = {f.lt.mon for f in F}
+    T = {m.mon for f in F for m in f.tail}
+    lt = [(g.lt.mon,g) for g in G]
+    G_prime = []
+    cofactors_G = dict()
+    G_mons = []
     while len(T) > 0:
         t = T.pop()
         columns.add(t)
-        for (mon,f) in lt:
-            factors = (t.mon).split(mon,1)
-            if len(factors) != 1:
+        for (m,g) in lt:
+            if m in t:
+                factors = t.split(m,1)
                 l = factors[0] + '*'
                 r = '*' + factors[1]
-                g = f.lmul(l).rmul(r)
-                F.append(g)
-                cofactorsF.append((NCMonomial(1,l,intern=True),f,NCMonomial(1,r,intern=True)))
-                T.update({m for m in g.tail}-columns)
+                f = g.lmul(l).rmul(r)
+                G_prime.append(f)
+                G_mons.append(f.lt.mon)
+                cofactors_G[f] = (NCMonomial(1,l,intern=True),g,NCMonomial(1,r,intern=True))
+                T.update({m.mon for m in f.tail if m.mon not in columns})
                 break
-    return [F,columns]
+    return (G_prime,G_mons,columns,cofactors_G)
 ############################################################################
-def SetUpMatrix(F,columns):
-    entries = {}
-    l = len(columns)
-    cols = {c.mon:i for (c,i) in zip(columns,range(l))}
-    for i,f in enumerate(F):
-        entries[(i,cols[f.lt.mon])] = f.lt.coeff
-        entries[(i,i+l)] = 1
-        entries.update({(i,cols[m.mon]):m.coeff for m in f.tail})
+def getMatrices(rows,columns,n,m):
+    entries = {(i,i+n):1 for i in range(n)}
+    for i,f in enumerate(rows):
+        entries[(i,columns[f.lt.mon])] = f.lt.coeff
+        entries.update({(i,columns[m.mon]):m.coeff for m in f.tail})
+    l = len(columns)+n
+    entries.update({(i+n,i+l):1 for i in range(m)})
+    
+    M = matrix(QQ,entries,sparse=True)
 
-    return matrix(QQ,entries,sparse=True)
+    A = M[:n,:2*n]
+    B = M[:n,2*n:len(columns)+n]
+    C = M[n:,:n]
+    D = M[n:,2*n:]
+
+    return (A,B,C,D)
 ############################################################################
-def Matrix2Poly(M,columns,F,cofactorsF):
-    T = M[:,len(columns):] #transformation matrix
-    M = M[:,:len(columns)]
-    pos = M.nonzero_positions()
-    #leave this line as is!
-    FPlus = [[] for i in range(pos[-1][0]+1)]
-    cofactors = [[] for i in range(pos[-1][0]+1)]
-    for (i,j) in pos:
-        FPlus[i].append(NCMonomial(M[i,j],columns[j].mon,intern=True))
-    for (i,j) in T.nonzero_positions():
-        if i < len(FPlus):
-            f = copyTriple(cofactorsF[j])
-            f[0].coeff *= T[i,j]
-            cofactors[i].append(f)
-        else:
-            break
-    lt_F = {f.lt.mon for f in F}
-    FPlus = [(NCPoly(f[0],f[1:]),c) for (f,c) in zip(FPlus,cofactors) if f[0].mon not in lt_F]
- 
-    return FPlus
+def diff(D,M):
+    for (i,j) in M.nonzero_positions():
+        D.add_to_entry(i,j,-M[i,j])
+############################################################################
+def multiplyTriple(triple,c):
+    f = copyTriple(triple)
+    f[0].coeff *= c
+    return f
 ############################################################################
 # Normal form computation
 ############################################################################
@@ -490,14 +566,7 @@ def ReducedForm(G_Input,f,InputProd=False):
     T = M[:,len(columns):] #transformation matrix
     R = M[:,:len(columns)]
     
-    pos = T.nonzero_positions_in_column(0)
-    if len(pos) == 0:
-        if InputProd:
-            return (p,[])
-        else:
-            return (f,[])
-            
-    pos = pos[-1]
+    pos = T.nonzero_positions_in_column(0)[-1]
     coeffs = T[pos,:]
     coeff_f = coeffs[0,0]
     coeffs = [c/coeff_f for c in coeffs.list()]
@@ -561,7 +630,7 @@ def Rewrite(linear_comb,cofactors):
 ############################################################################
 def __rewriteCofactors__(cofactors,I):
     start = time()
-    cofactors[:] = [(f.toNormal(),map(tripleToNormal,c)) for (f,c) in cofactors]
+    cofactors[:] = [(f.toNormal(),[tripleToNormal(t) for t in c]) for (f,c) in cofactors]
     end = time()
     cofactors_done = {cofactors[0][0]:cofactors[0][1]}
     print "convert data structure %.5f" %(end-start)
@@ -586,19 +655,56 @@ def __symbolicPreprocessingRed__(h,G):
     lt = [(g.lt.mon,g) for g in G]
     F = []
     columns = set()
+    done = set()
     cofactors = []
     while len(T) > 0:
         t = T.pop()
+        t_mon = t.mon
         columns.add(t)
+        done.add(t_mon)
         for (mon,f) in lt:
-            factors = (t.mon).split(mon,1)
-            if len(factors) != 1:
-                g = f.lmul(factors[0] + '*').rmul('*' + factors[1])
-                cofactors.append([NCMonomial(1,factors[0] + '*',intern=True),f,NCMonomial(1,'*' + factors[1],intern=True)])
+            if mon in t_mon:
+                factors = (t_mon).split(mon,1)
+                l = factors[0] + '*'
+                r = '*' + factors[1]
+                g = f.lrmul(l,r)
+                cofactors.append([NCMonomial(1,l,intern=True),f,NCMonomial(1,r,intern=True)])
                 F.append(g)
-                T.update({m for m in g.tail}-columns)
+                T.update({m for m in g.tail if m.mon not in done})
                 break
     return [F,columns,cofactors]
+############################################################################
+def SetUpMatrix(F,columns):
+    entries = {}
+    l = len(columns)
+    cols = {c.mon:i for (c,i) in zip(columns,range(l))}
+    for i,f in enumerate(F):
+        entries[(i,cols[f.lt.mon])] = f.lt.coeff
+        entries[(i,i+l)] = 1
+        entries.update({(i,cols[m.mon]):m.coeff for m in f.tail})
+
+    return matrix(QQ,entries,sparse=True)
+############################################################################
+def Matrix2Poly(M,columns,F,cofactorsF):
+    T = M[:,len(columns):] #transformation matrix
+    M = M[:,:len(columns)]
+    pos = M.nonzero_positions()
+    #leave this line as is!
+    FPlus = [[] for i in range(pos[-1][0]+1)]
+    cofactors = [[] for i in range(pos[-1][0]+1)]
+    for (i,j) in pos:
+        FPlus[i].append(NCMonomial(M[i,j],columns[j].mon,intern=True))
+    for (i,j) in T.nonzero_positions():
+        if i < len(FPlus):
+            f = copyTriple(cofactorsF[j])
+            f[0].coeff *= T[i,j]
+            cofactors[i].append(f)
+        else:
+            break
+    lt_F = {f.lt.mon for f in F}
+    FPlus = [(NCPoly(f[0],f[1:]),c) for (f,c) in zip(FPlus,cofactors) if f[0].mon not in lt_F]
+ 
+    return FPlus
 ############################################################################
 # Interreduction
 ############################################################################
@@ -643,8 +749,25 @@ def Interreduce(F,InputProd=False):
 ############################################################################
 # Certify
 ############################################################################
-def Certify(assumptionsInput,claims,Q,N=2,MaxIter=10,MaxDeg=-1,MultiLex=False,Info=True,Criterion=True):
+def Certify(assumptionsInput,claims,Q,N=-1,MaxIter=10,MaxDeg=-1,MultiLex=False,Info=True,Criterion=True):
     
+    assumptions = [NCPoly(f) for f in assumptionsInput]
+    
+    #checking compatibility
+    for f in assumptions:
+        if Q.QSignature(f) == []:
+            print "The assumption " + str(f.toNormal()) + " is not compatible with the quiver."
+            return False
+    if type(claims) is list:
+        for f in claims:
+            if Q.QSignature(f) == []:
+                print "The claim " + str(f.toNormal()) + " is not compatible with the quiver."
+                return False
+    else:
+         if Q.QSignature(claims) == []:
+            print "The claim " + str(claims.toNormal()) + " is not compatible with the quiver."
+            return False
+        
     #setting up the ring
     if Info:
         print "Using the following monomial ordering:"
@@ -655,11 +778,12 @@ def Certify(assumptionsInput,claims,Q,N=2,MaxIter=10,MaxDeg=-1,MultiLex=False,In
                 vars_claims.update(f.variables())
         else:
             vars_claims = claims.variables()
-        knowns = [v for v in Q if v in vars_claims]
-        unknowns = [v for v in Q if v not in knowns]
+        vars_claims = [str(v) for v in vars_claims]
+        knowns = [v for v in Q.vars() if v in vars_claims]
+        unknowns = [v for v in Q.vars() if v not in knowns]
         SetUpRing(knowns,unknowns,Info=Info)
     else:
-        SetUpRing(Q,Info=Info)
+        SetUpRing(Q.vars(),Info=Info)
 
     assumptions = [NCPoly(f) for f in assumptionsInput]
     
@@ -807,10 +931,10 @@ def __rewriteCertify__(varsInput,cofactors):
 ############################################################################
 def MultiplyOut(cofactors):
     return sum(map(prod,cofactors))
-
+############################################################################
 def AllInI(cofactors,I):
     return all([g in I for [l,g,r] in cofactors])
-
+############################################################################
 def checkCorrect(cofactors,G,I):
     print "cofactors = G: "
     print [f for (f,c) in cofactors] == G[len(I):]
@@ -820,7 +944,7 @@ def checkCorrect(cofactors,G,I):
 
     print "linear combination only of elements in I:"
     print all([AllInI(c,I) for (f,c) in cofactors])
-
+############################################################################
 def CheckCertificate(certificate,claim,I):
     print "certificate = claim:"
     print MultiplyOut(certificate) == claim
@@ -838,6 +962,61 @@ def tripleToNormal(t):
 ############################################################################
 def copyTriple(t):
     return (t[0].copy(),t[1].copy(),t[2].copy())
+############################################################################
+#  Quiver
+############################################################################
+class Quiver:
+    def __init__(self,triples):
+        G = DiGraph(multiedges=True,loops=True)
+        for (l,s,t) in triples:
+            G.add_edge(s,t,l)
+        self.G = G
+        self.__vars__ = [l for (l,s,t) in triples]
+############################################################################
+    def plot(self):
+        G2 = self.G.plot(edge_labels=True)
+        G2.show()
+############################################################################
+    def vars(self):
+        return self.__vars__
+############################################################################
+    def source(self,label):
+        return [s for (s,t,l) in self.G.edge_iterator() if l == label]
+############################################################################
+    def target(self,label):
+        return [t for (s,t,l) in self.G.edge_iterator() if l == label]
+############################################################################
+    def __QSignatureMon__(self,m):
+        #check if mon = 0
+        if m.coeff == 0:
+            return []
+
+        m = m.mon.strip('*').split('*')
+        #check if mon = 1
+        if m == ['']:
+            return [(v,v) for v in self.G.vertex_iterator()]
+
+        #usual case normal monomial
+        begin = [(s,t) for (s,t,l) in self.G.edge_iterator() if l == m[-1]]
+        for i in range(len(m)-2,-1,-1):
+            end = [(s,t) for (s,t,l) in self.G.edge_iterator() if l == m[i]]
+            comb = [(s1,t2) for ((s1,t1),(s2,t2)) in itertools.product(begin,end)]
+            if len(comb) == 0:
+                return []
+            begin = comb
+        return begin
+############################################################################
+    def QSignature(self,poly):
+        if isinstance(poly,NCPoly):
+            f = poly
+        else:
+            f = NCPoly(poly)
+        monomials = f.tail + [f.lt]
+        mon_signatures = [self.__QSignatureMon__(m) for m in monomials]
+        if all(s == mon_signatures[0] for s in mon_signatures):
+            return mon_signatures[0]
+        else:
+            return []
 ############################################################################
 # Stuff to execute
 ############################################################################
