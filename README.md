@@ -23,12 +23,8 @@ Changes since last meeting:
     - Uploaded examples from the paper "Formal proofs of operator identities..."
     - Uploaded official version 1.1.0
  * Sage:
-    - Changed data structure (tuple -> string); now Sage outperforms Mathematica
-    - Implemented Certify (but without the Quiver stuff)
-    - Implemented Interreduction
-    - Implemented/Improved Normalform computation
-    - Certify now only rewrites the cofactors actually appearing in the certificate
-    - Best timings for Big Hartwig: Compute GB: 2.5 sec, Certify: 6.2 sec 
+    - Implemented Quiver
+    - Implemented Faugere's algorithm to compute RRef
   ________
 TODO:
   * Compute minimal Groebner basis (Thm. 5.3.10 in PhD thesis)
@@ -36,7 +32,5 @@ TODO:
   * Chain criterion
   * Mathematica:
     - adapt Documentation
-  * Sage:
-    - Quiver
   
   
