@@ -19,9 +19,6 @@ Changes compared to version 1.1.0:
   --------
 Changes since last meeting:
   * Mathematica:
-    - Uploaded Big Hartwig sheet
-    - Uploaded examples from the paper "Formal proofs of operator identities..."
-    - Uploaded official version 1.1.0
  * Sage:
     - Implemented Quiver
     - Implemented Faugere's algorithm to compute RRef
