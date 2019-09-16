@@ -18,7 +18,7 @@ Clear[
 	CreateRedSys,ToPoly,Rewrite,MultiplyOut,Interreduce,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,
-	Quiver,QSignature,PlotQuiver,
+	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,
 	Certify
 ]
 
@@ -105,6 +105,8 @@ adj::usage="adj[A] represents the adjoint of the operator A"
 Quiver::usage="Data structure of a Quiver"
 QSignature::usage="QSignature[poly,Q] returns the signature of the polynomial poly w.r.t. the quiver Q (not necessarily with unique lables)"
 PlotQuiver::usage="Plot a quiver Q"
+CompatibleQ::usage="Tests whether a polynomial is compatible with a quiver."
+UniformlyCompatibleQ::usage="Tests whether a polynomial is uniformly compatible with a quiver."
 
 
 (*Certify*)
@@ -300,7 +302,7 @@ Module[{k,min},
 	min = Min[Length[v],Length[w]];
 	Reap[For[k=1,k<min,k++,
 		If[Take[v,-k]===Take[w,k],
-			Sow[Overlap[Join[v,Drop[w,k]],Drop[w,k],Drop[v,-k],{i,j}]]
+			Sow[Overlap[Join[v,Drop[w,k]],Drop[v,-k],Drop[w,k],{i,j}]]
 		]];
 	][[2]]
 ]
@@ -353,43 +355,15 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 
 
 (* ::Text:: *)
-(*Approach from the PhD Thesis*)
-
-
-Transform[Inclusion[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[wi,wj,{},{},i]
-Transform[Inclusion[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[{},{},wi,wj,j]
-Transform[Overlap[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[{},wi,wj,{},i]
-Transform[Overlap[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[wj,{},{},wi,j]
-
-
-DeleteRedundantPhD[amb_List]:= 
-Module[{Os,B={},pairs,selected,f,i,j,wi,wj,k},
-	Do[
-		selected = Transform[#,k]&/@Select[amb,Max[#[[4]]]===k&];
-		While[Length[selected] > 0,
-			f = First[selected];
-			AppendTo[Os,f];
-			(*selected = DeleteCases[selected,Alternatives@@(Obstruction[
-			MemberQ[
-			*)
-	
-		]
-	,{k,Max[amb[[All,4,2]]]}
-	];
-	B = Join[B,Os];
-	B
-]
-
-
-(* ::Text:: *)
 (*Approach from Mora*)
 
 
 DeleteRedundant[ambInput_List,OptionsPattern[{Info->False}]]:= 
 Module[{selected,i,amb,result,f,t},
 	t = AbsoluteTiming[
-	amb = SortBy[ambInput,Length[#[[1]]&]];
 	result = {};
+	If[Length[ambInput]===0,Return[result]];
+	amb = SortBy[ambInput,Length[#[[1]]&]];
 	Do[
 		selected = Select[amb,Max[#[[4]]]===i &];
 		While[Length[selected] > 0,
@@ -417,15 +391,15 @@ Module[{selected,i,amb,result,f,t},
 
 SPoly[amb:_Overlap|_Inclusion,fi_,fj_]:=
 Module[{A,C},
-	C = Prod@@amb[[2]];
-	A = Prod@@amb[[3]];
+	A = Prod@@amb[[2]];
+	C = Prod@@amb[[3]];
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
 			{Prod[fi[[2]],C] - Prod[A,fj[[2]]],
 				{{A,ToPoly[fj],Prod[]},{-Prod[],ToPoly[fi],C}}},
 			(*Inclusion[CBA,C,A]*)
-			{fi[[2]] - Prod[C,fj[[2]],A],
-			{{C,ToPoly[fj],A},{-Prod[],ToPoly[fi],Prod[]}}}
+			{fi[[2]] - Prod[A,fj[[2]],C],
+			{{A,ToPoly[fj],C},{-Prod[],ToPoly[fi],Prod[]}}}
 	]
 ]
 
@@ -437,7 +411,7 @@ Module[{A,C},
 SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	If[amb[[0]]=== Overlap,
 			(*Overlap[ABC,C,A]*)
-			Prod[fi[[2]],amb[[2]]] - Prod[amb[[3]],fj[[2]]],
+			Prod[fi[[2]],amb[[3]]] - Prod[amb[[2]],fj[[2]]],
 			(*Inclusion[CBA,C,A]*)
 			fi[[2]] - Prod[amb[[2]],fj[[2]],amb[[3]]]
 	]
@@ -768,12 +742,12 @@ Monomials[f_]:= (MonomialList[f]/.Times[_,a_]->a)/.Prod->List
 
 SPolyF4[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	If[amb[[0]]=== Overlap,
-			(*Overlap[ABC,C,A]*)
-			If[Prod[fi,amb[[2]]] === Prod[amb[[3]],fj], 
+			(*Overlap[ABC,A,C]*)
+			If[Prod[fi,amb[[3]]] === Prod[amb[[2]],fj], 
 				Sequence@@{},
-				Sequence@@{{Prod[fi,amb[[2]]],{Prod[],fi,Prod[amb[[2]]]}},{Prod[amb[[3]],fj],{Prod[amb[[3]]],fj,Prod[]}}}
+				Sequence@@{{Prod[fi,amb[[3]]],{Prod[],fi,Prod[amb[[3]]]}},{Prod[amb[[2]],fj],{Prod[amb[[2]]],fj,Prod[]}}}
 			],
-			(*Inclusion[CBA,C,A]*)
+			(*Inclusion[ABC,A,C]*)
 			If[fi === Prod[amb[[2]],fj,amb[[3]]], 
 				Sequence@@{},
 				Sequence@@{{fi,{Prod[],fi,Prod[]}},{Prod[amb[[2]],fj,amb[[3]]],{Prod[amb[[2]]],fj,Prod[amb[[3]]]}}}
@@ -1054,7 +1028,7 @@ Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart},
 	cofactors = Map[{{Prod[],#,Prod[]}}&,G];
 	
 	(*actual interreduction*)
-	While[i < s,
+	While[i <= s,
 		If[G[[i]]===Null,i++;Continue[]];
 		r = Reap[gi = G[[i]]//.Drop[rules,{i}]];
 		If[gi===0,
@@ -1085,7 +1059,7 @@ Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Collect cofactors*)
 
 
@@ -1187,11 +1161,16 @@ Module[{monomials,m,results,i,begin,end,comb,vertices},
 	(*base case: only one mononmial*)
 	If[Length[monomials] === 1,
 			m = monomials[[1]];
-			If[m===0,Throw[{}]];
-			(*empty monomial = Prod[] \[Rule] is compatible; Return all empty paths*)
+			(*zero has signature V x V*)
+			If[m===0,
+				vertices = Sort[DeleteDuplicates[Flatten[Q[[All,2;;3]]]]];
+				Throw[Tuples[vertices,2]]
+			];
+			(*empty monomial = Prod[] \[Rule] return all empty paths*)
 			If[Length[m]===0, 
 				vertices = Sort[DeleteDuplicates[Flatten[Q[[All,2;;3]]]]];
-				Throw[{Map[{#,#}&,vertices]}]];
+				Throw[Map[{#,#}&,vertices]]
+			];
 			(*get all sources and targets of first lable*)
 			begin = Cases[Q,{m[[-1]],_,_}][[All,2;;3]];
 			For[i = Length[m]-1, i > 0, i--,
@@ -1206,12 +1185,23 @@ Module[{monomials,m,results,i,begin,end,comb,vertices},
 			Throw[begin],	
 			(*usual case: split polynomial into monomials*)
 			results = Map[QSignature[Prod@@#,Q]&,monomials];
-			If[AllTrue[results,# === results[[1]]&],
-				Throw[results[[1]]],
-				Throw[{}]
-			];
+			Throw[Intersection[Sequence@@results]]
 	]
 	]
+]
+
+
+CompatibleQ[p_,Q:Quiver]:= QSignature[p,Q]=!={}
+
+
+UniformlyCompatibleQ[p_,Q:Quiver]:= 
+Module[{monomials,signatures},
+	If[!CompatibleQ[p,Q],
+		Return[False]
+	];
+	monomials = MonomialList[p];
+	signatures = Map[QSignature[#,Q]&,monomials];
+	AllTrue[signatures,#===signatures[[1]]&]
 ]
 
 
@@ -1232,9 +1222,9 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	assumptions = DeleteCases[assumptions,0];
 
 	(*check compatibility of the assumptions and the claims*)
-	sigAssump = Map[QSignature[#,Q]&,assumptions];
-	If[MemberQ[sigAssump,{}],
-		Print["The assumption ", Extract[assumptionsInput,Position[sigAssump,{}][[1,1]]]," is not compatible with the quiver."]; Return[$Failed]
+	sigAssump = Map[UniformlyCompatibleQ[#,Q]&,assumptions];
+	If[MemberQ[sigAssump,False],
+		Print["The assumption ", Extract[assumptionsInput,Position[sigAssump,False][[1,1]]]," is not uniformly compatible with the quiver."]; Return[$Failed]
 	];
 	If[Head[claims] === List,
 		sigClaim = Map[QSignature[#,Q]&,claims];
@@ -1291,21 +1281,18 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 			count++;
 		];
 	];
-	If[info, Print["Rewriting the cofactors has started..."]];
-	t = AbsoluteTiming[RewriteGroebner[cofactors,Info->OptionValue[Info],OutputProd->True]][[1]];
-	If[info, Print["Rewriting the cofactors took in total ", t]];
 	
 	(*rewrite the linear combination*)
-	If[info,
-		Print["\nRewriting the linear combination in terms of the assumptions has started...\n"]];
-	certificate = Rewrite[vars,cofactors,InputProd->True];
+	If[info, Print["Rewriting the cofactors has started..."]];
+	t = AbsoluteTiming[certificate = RewriteCertify[vars,cofactors];][[1]];
+	If[info, Print["Rewriting the cofactors took in total ", t]];
 	
 	(*rewrite in terms of assumptions and not of the interreduced assumptions*)
 	rules = Table[{k_,assumptionsRed[[i]],l_}->
 		Sequence@@Table[{Prod[k,j[[1]]],j[[2]],Prod[j[[3]],l]},{j,redCofactors[[i]]}],{i,Length[redCofactors]}];
 	certificate = certificate/.rules;
 	(*take care of leading coefficients in the certificate*)
-	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,assumptions];
+	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,assumptions];	
 	certificate = certificate/.rules;
 	(*convert back to NonCommutativeMultiply*)
 	certificate = If[Head[claims]===List,
@@ -1319,7 +1306,42 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 			Print["Done! Not all claims could be reduced to 0."]
 		]
 	];
-	{sigAssump,sigClaim,reduced,certificate}
+	{Map[QSignature[#,Q]&,assumptions],sigClaim,reduced,certificate}
+]
+
+
+RewriteCertify[varsInput_,cofactors_]:= Module[
+{a,b,i,j,count,rules,toReduce,occurring,toAdd,g,vars},
+	If[MatchQ[varsInput,{{{_,_,_}...}...}],
+		toReduce = Map[ToProd,varsInput,{3}];
+		vars = Flatten[toReduce,1],
+		toReduce = Map[ToProd,varsInput,{2}];
+		vars = toReduce
+	];
+				
+	toAdd = Position[cofactors[[All,1]],Alternatives@@vars[[All,2]]];
+	occurring = {};
+	(*find all cofactors actually appearing in the certificate*)
+	While[toAdd =!= {},
+		occurring = Join[occurring,toAdd];
+		g = Extract[cofactors,toAdd];
+		toAdd = Flatten[Map[Position[cofactors[[All,1]],Alternatives@@#[[2,All,2]]]&,g],1];
+		toAdd = Complement[toAdd,occurring];
+	];
+	If[occurring === {},
+		Return[toReduce]
+	];
+	occurring = Sort[occurring];
+	
+	(*sucessively make reduction rules*)
+	g = cofactors[[occurring[[1,1]]]];
+	rules = {{a__,g[[1]],b__} -> Sequence@@Table[{Prod[Evaluate[a],j[[1]]],j[[2]],Prod[j[[3]],Evaluate[b]]},{j,g[[2]]}]};
+	Do[
+		g = f[[2]]/.rules;
+		AppendTo[rules,{a__,f[[1]],b__} -> Sequence@@Table[{Prod[Evaluate[a],j[[1]]],j[[2]],Prod[j[[3]],Evaluate[b]]},{j,g}]];
+	,{f,Extract[cofactors,occurring[[2;;]]]}];
+	
+	toReduce/.rules
 ]
 
 
