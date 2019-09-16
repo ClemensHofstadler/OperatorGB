@@ -18,7 +18,7 @@ Clear[
 	CreateRedSys,ToPoly,Rewrite,MultiplyOut,Interreduce,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,
-	Quiver,QSignature,PlotQuiver,
+	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,
 	Certify
 ]
 
@@ -105,6 +105,8 @@ adj::usage="adj[A] represents the adjoint of the operator A"
 Quiver::usage="Data structure of a Quiver"
 QSignature::usage="QSignature[poly,Q] returns the signature of the polynomial poly w.r.t. the quiver Q (not necessarily with unique lables)"
 PlotQuiver::usage="Plot a quiver Q"
+CompatibleQ::usage="Tests whether a polynomial is compatible with a quiver."
+UniformlyCompatibleQ::usage="Tests whether a polynomial is uniformly compatible with a quiver."
 
 
 (*Certify*)
@@ -388,8 +390,9 @@ Module[{Os,B={},pairs,selected,f,i,j,wi,wj,k},
 DeleteRedundant[ambInput_List,OptionsPattern[{Info->False}]]:= 
 Module[{selected,i,amb,result,f,t},
 	t = AbsoluteTiming[
-	amb = SortBy[ambInput,Length[#[[1]]&]];
 	result = {};
+	If[Length[ambInput]===0,Return[result]];
+	amb = SortBy[ambInput,Length[#[[1]]&]];
 	Do[
 		selected = Select[amb,Max[#[[4]]]===i &];
 		While[Length[selected] > 0,
@@ -443,7 +446,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Groebner basis*)
 
 
@@ -997,7 +1000,7 @@ ApplyRules[expr_,G_]:=
 	ToNonCommutativeMultiply[ToProd[expr]//.ExtractRules[CreateRedSys[G]]]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Additional stuff*)
 
 
@@ -1222,11 +1225,16 @@ Module[{monomials,m,results,i,begin,end,comb,vertices},
 	(*base case: only one mononmial*)
 	If[Length[monomials] === 1,
 			m = monomials[[1]];
-			If[m===0,Throw[{}]];
-			(*empty monomial = Prod[] \[Rule] is compatible; Return all empty paths*)
+			(*zero has signature V x V*)
+			If[m===0,
+				vertices = Sort[DeleteDuplicates[Flatten[Q[[All,2;;3]]]]];
+				Throw[Tuples[vertices,2]]
+			];
+			(*empty monomial = Prod[] \[Rule] return all empty paths*)
 			If[Length[m]===0, 
 				vertices = Sort[DeleteDuplicates[Flatten[Q[[All,2;;3]]]]];
-				Throw[{Map[{#,#}&,vertices]}]];
+				Throw[Map[{#,#}&,vertices]]
+			];
 			(*get all sources and targets of first lable*)
 			begin = Cases[Q,{m[[-1]],_,_}][[All,2;;3]];
 			For[i = Length[m]-1, i > 0, i--,
@@ -1241,12 +1249,23 @@ Module[{monomials,m,results,i,begin,end,comb,vertices},
 			Throw[begin],	
 			(*usual case: split polynomial into monomials*)
 			results = Map[QSignature[Prod@@#,Q]&,monomials];
-			If[AllTrue[results,# === results[[1]]&],
-				Throw[results[[1]]],
-				Throw[{}]
-			];
+			Throw[Intersection[Sequence@@results]]
 	]
 	]
+]
+
+
+CompatibleQ[p_,Q:Quiver]:= QSignature[p,Q]=!={}
+
+
+UniformlyCompatibleQ[p_,Q:Quiver]:= 
+Module[{monomials,signatures},
+	If[!CompatibleQ[p,Q],
+		Return[False]
+	];
+	monomials = MonomialList[p];
+	signatures = Map[QSignature[#,Q]&,monomials];
+	AllTrue[signatures,#===signatures[[1]]&]
 ]
 
 
@@ -1254,7 +1273,7 @@ PlotQuiver[Q:Quiver]:=
 	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Certify*)
 
 
@@ -1267,9 +1286,9 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	assumptions = DeleteCases[assumptions,0];
 
 	(*check compatibility of the assumptions and the claims*)
-	sigAssump = Map[QSignature[#,Q]&,assumptions];
-	If[MemberQ[sigAssump,{}],
-		Print["The assumption ", Extract[assumptionsInput,Position[sigAssump,{}][[1,1]]]," is not compatible with the quiver."]; Return[$Failed]
+	sigAssump = Map[UniformlyCompatibleQ[#,Q]&,assumptions];
+	If[MemberQ[sigAssump,False],
+		Print["The assumption ", Extract[assumptionsInput,Position[sigAssump,False][[1,1]]]," is not uniformly compatible with the quiver."]; Return[$Failed]
 	];
 	If[Head[claims] === List,
 		sigClaim = Map[QSignature[#,Q]&,claims];
@@ -1326,6 +1345,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 			count++;
 		];
 	];
+	
 	(*rewrite the linear combination*)
 	If[info, Print["Rewriting the cofactors has started..."]];
 	t = AbsoluteTiming[certificate = RewriteCertify[vars,cofactors];][[1]];
@@ -1336,7 +1356,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 		Sequence@@Table[{Prod[k,j[[1]]],j[[2]],Prod[j[[3]],l]},{j,redCofactors[[i]]}],{i,Length[redCofactors]}];
 	certificate = certificate/.rules;
 	(*take care of leading coefficients in the certificate*)
-	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,assumptions];
+	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,assumptions];	
 	certificate = certificate/.rules;
 	(*convert back to NonCommutativeMultiply*)
 	certificate = If[Head[claims]===List,
@@ -1350,7 +1370,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 			Print["Done! Not all claims could be reduced to 0."]
 		]
 	];
-	{sigAssump,sigClaim,reduced,certificate}
+	{Map[QSignature[#,Q]&,assumptions],sigClaim,reduced,certificate}
 ]
 
 
@@ -1362,7 +1382,7 @@ RewriteCertify[varsInput_,cofactors_]:= Module[
 		toReduce = Map[ToProd,varsInput,{2}];
 		vars = toReduce
 	];
-			
+				
 	toAdd = Position[cofactors[[All,1]],Alternatives@@vars[[All,2]]];
 	occurring = {};
 	(*find all cofactors actually appearing in the certificate*)
@@ -1372,8 +1392,8 @@ RewriteCertify[varsInput_,cofactors_]:= Module[
 		toAdd = Flatten[Map[Position[cofactors[[All,1]],Alternatives@@#[[2,All,2]]]&,g],1];
 		toAdd = Complement[toAdd,occurring];
 	];
-	If[Length[occurring] === {},
-		Return[vars]
+	If[occurring === {},
+		Return[toReduce]
 	];
 	occurring = Sort[occurring];
 	
@@ -1397,7 +1417,7 @@ Copyright[a_String,b___String]:=Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 
 Copyright[
-    "Package OperatorGB version 1.1.1",
+    "Package OperatorGB version 1.1.0",
     "Copyright 2019, Institute for Algebra, JKU",
     "written by Clemens Hofstadler"];
 
