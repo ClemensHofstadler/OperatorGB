@@ -103,7 +103,7 @@ adj::usage="adj[A] represents the adjoint of the operator A"
 
 (*Quiver*)
 Quiver::usage="Data structure of a Quiver"
-QSignature::usage="QSignature[poly,Q] returns the signature of the polynomial poly w.r.t. the quiver Q (not necessarily with unique lables)"
+QSignature::usage="QSignature[poly,Q] returns the signature of the polynomial poly w.r.t. the quiver Q (not necessarily with unique labels)"
 PlotQuiver::usage="Plot a quiver Q"
 CompatibleQ::usage="Tests whether a polynomial is compatible with a quiver."
 UniformlyCompatibleQ::usage="Tests whether a polynomial is uniformly compatible with a quiver."
@@ -468,7 +468,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 
 SetAttributes[Groebner,HoldFirst]
 
-Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->True,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
+Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->True,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True,IterCount->0}]]:=
 Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -512,7 +512,7 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 
 		If[info, Print["The second reduction took ", t1]];
 		count++;
-		If[info,Print["Iteration ",count, " finished. G has now ", Length[G]," elements\n"]];
+		If[info,Print["Iteration ",count + OptionValue[IterCount], " finished. G has now ", Length[G]," elements\n"]];
 		If[count < maxiter, 
 			spol = CheckResolvability[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
 			oldlength = Length[G];
@@ -1176,7 +1176,7 @@ adj[adj[a__]] := a
 
 
 adj[NonCommutativeMultiply[a_,b_]] := NonCommutativeMultiply[adj[b],adj[a]]
-adj[1]:= 1
+adj[a_?CoeffQ]:= a
 adj[-a_]:= -adj[a];
 adj[Times[a_?CoeffQ,NonCommutativeMultiply[b___]]]:= a adj[NonCommutativeMultiply[b]]
 adj[Times[a_?CoeffQ,b_]]:=a adj[b]
@@ -1194,7 +1194,7 @@ Quiver = {RepeatedNull[{__,__,__}]};
 
 
 (* ::Text:: *)
-(*Gives all Sources and Targets, respectively, of a certain lable of a quiver Q (not necessarily with unique lables).*)
+(*Gives all Sources and Targets, respectively, of a certain label of a quiver Q (not necessarily with unique labels).*)
 
 
 Target[Alternatives[l_Symbol,l:adj[_]],Q:Quiver]:=
@@ -1212,7 +1212,7 @@ Module[{q},
 
 
 (* ::Text:: *)
-(*Returns the signature of a polynomial w.r.t. to a quiver Q (not necessarily with unique lables)*)
+(*Returns the signature of a polynomial w.r.t. to a quiver Q (not necessarily with unique labels)*)
 
 
 QSignature[l_List,Q:Quiver]:= Map[QSignature[#,Q]&,l]
@@ -1221,7 +1221,7 @@ QSignature[l_List,Q:Quiver]:= Map[QSignature[#,Q]&,l]
 QSignature[p_,Q:Quiver]:=
 Module[{monomials,m,results,i,begin,end,comb,vertices},
 	monomials = (MonomialList[ToProd[p]]/.c__*Prod[x___]->Prod[x])/.Prod->List;
-	Catch[
+	Sort[Catch[
 	(*base case: only one mononmial*)
 	If[Length[monomials] === 1,
 			m = monomials[[1]];
@@ -1235,23 +1235,23 @@ Module[{monomials,m,results,i,begin,end,comb,vertices},
 				vertices = Sort[DeleteDuplicates[Flatten[Q[[All,2;;3]]]]];
 				Throw[Map[{#,#}&,vertices]]
 			];
-			(*get all sources and targets of first lable*)
+			(*get all sources and targets of first label*)
 			begin = Cases[Q,{m[[-1]],_,_}][[All,2;;3]];
 			For[i = Length[m]-1, i > 0, i--,
-				(*get all sources and targets of lable i*)
+				(*get all sources and targets of label i*)
 				end = Cases[Q,{m[[i]],_,_}][[All,2;;3]];
-				(*check if the two lables are compatible*)
+				(*check if the two labels are compatible*)
 				comb = {};
 				Do[Map[If[i[[2]]===#[[1]],AppendTo[comb,{i[[1]],#[[2]]}]]&,end],{i,begin}];
 				If[comb === {}, Throw[{}]];
-				begin = comb;
+				begin = DeleteDuplicates[comb];
 			];
 			Throw[begin],	
 			(*usual case: split polynomial into monomials*)
 			results = Map[QSignature[Prod@@#,Q]&,monomials];
 			Throw[Intersection[Sequence@@results]]
 	]
-	]
+	]]
 ]
 
 
@@ -1330,14 +1330,14 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	toIgnore = Length[assumptionsRed];
 	i = 1;
 	If[info,Print["Starting iteration ", i ,"...\n"]];
+	G = Groebner[cofactors,assumptionsRed,1,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],OutputProd->True,Rewrite->False,IterCount->i-1];
 	i++;
-	G = Groebner[cofactors,assumptionsRed,1,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],OutputProd->True,Rewrite->False];
 	reduced = ReducedForm[vars,G,claims];
 	While[reduced =!= zeros && i <= maxiter,
 		toIgnoreOld = Length[G];
 		If[info,Print["Starting iteration ", i ,"...\n"]];
+		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],OutputProd->True,Rewrite->False,IterCount->i-1];
 		i++;
-		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],OutputProd->True,Rewrite->False];
 		toIgnore = toIgnoreOld;
 		count = 0;
 		While[reduced =!= zeros && count < 4,
