@@ -38,6 +38,7 @@ WordOrder = []
 Knowns = []
 Unknowns = []
 SortedQ = None
+t1 = t2 = t3 = t4 = t5 = t6 = 0
 ############################################################################
 # NCMonomial
 ############################################################################
@@ -367,13 +368,13 @@ def CheckResolvability(G,oldlength=0,Criterion=True,MaxDeg=-1,Info=True):
     critPairs.sort(key=lambda p: p.deg)
 
     if Info:
-        print(str(len(critPairs)) + " S-polynoimals were generated.")
+        print(str(len(critPairs)) + " critical pairs were generated.")
 
     return critPairs
 ############################################################################
 # F4
 ############################################################################
-def F4(cofactors,ideal,MaxIter=10,N=-1,Ignore=0,MaxDeg=-1,Criterion=True,Info=True,OutputProd=False):
+def F4(cofactors,ideal,MaxIter=10,N=-1,Ignore=0,MaxDeg=-1,Criterion=True,Info=True,OutputProd=False,IterCount=0):
     if not isinstance(ideal[0],NCPoly):
         G = map(NCPoly,ideal)
     else:
@@ -392,7 +393,8 @@ def F4(cofactors,ideal,MaxIter=10,N=-1,Ignore=0,MaxDeg=-1,Criterion=True,Info=Tr
     while count < MaxIter:
         start = time()
         while len(critPairs) > 0:
-            F = [pair for pair in critPairs if pair.deg == critPairs[0].deg]
+            d = critPairs[0].deg
+            F = [pair for pair in critPairs if pair.deg == d]
             critPairs = critPairs[len(F):]
             FPlus = Reduction(F,G)
             F = [f for (f,c) in FPlus]
@@ -405,12 +407,12 @@ def F4(cofactors,ideal,MaxIter=10,N=-1,Ignore=0,MaxDeg=-1,Criterion=True,Info=Tr
         if Info:
             print "Reduction took: %.5f" % (end-start)
         if len(G) == oldlength:
-            print "All S-polynomials could be reduced to 0.\n"
+            print "All critical pairs could be reduced to 0.\n"
             break
         
         count += 1
         if Info:
-            print "Iteration " + str(count) + " finished. G has now " + str(len(G)) + " elements.\n"
+            print "Iteration " + str(count+IterCount) + " finished. G has now " + str(len(G)) + " elements.\n"
         if count < MaxIter:
             critPairs = CheckResolvability(G,oldlength,Criterion=Criterion,MaxDeg=MaxDeg,Info=Info)
             oldlength = len(G)
@@ -430,8 +432,13 @@ def F4(cofactors,ideal,MaxIter=10,N=-1,Ignore=0,MaxDeg=-1,Criterion=True,Info=Tr
 # Reduction & Symbolic Preprocessing
 ############################################################################
 def Reduction(L,G):
+
+    global t1,t2,t3,t4,t5,t6
+    
+    start = time()
     F = [f for pair in L for f in (pair.f,pair.g)]
     (pivot_rows,pivot_cols,columns,cofactors_G) = SymbolicPreprocessing(F,G)
+    t1 += time() -start
     
     #split ciritcal polynomials in pivot and non-pivot rows
     start = time()
@@ -443,7 +450,6 @@ def Reduction(L,G):
         else:
             pivot_cols.append(f.lt.mon)
             pivot_rows.append(f)
-    
     #seperate pivot and non-pivot columns
     rest_cols = [NCMonomial(1,m,intern=True) for m in columns if m not in pivot_cols]
     pivot_cols = [NCMonomial(1,m,intern=True) for m in pivot_cols]
@@ -455,19 +461,28 @@ def Reduction(L,G):
     columns = {m.mon:i for (i,m) in enumerate(pivot_cols)}
     columns.update({m.mon:i+2*n for (i,m) in enumerate(rest_cols)})
     rows = pivot_rows + rest_rows
+    t2+= time() - start
 
+    start = time()
     (A,B,C,D) = getMatrices(rows,columns,n,m)
+    t3 += time()-start
     
+    start = time()
     A_inv = A.rref()[:,n:]
     CA_inv = C*A_inv
-
+    t4 += time() - start
+    
+    start = time()
     #bring D - CA^{-1}B in RRef
     diff(D,CA_inv*B)
     M = D.rref()
    #get transformation matrix
     T = M[:,-m:]
     M = M[:,:-m]
-
+    t5 += time()-start
+    
+    
+    start = time()
     #compute polynomials
     pos = M.nonzero_positions()
     if len(pos) == 0:
@@ -494,6 +509,7 @@ def Reduction(L,G):
         cofactors[i].append(triple)
 
     FPlus = [(NCPoly(f[0],f[1:]),c) for (f,c) in zip(FPlus,cofactors)]
+    t6 += time() -start
 
     return FPlus
 ############################################################################
@@ -812,7 +828,7 @@ def Certify(assumptionsInput,claims,Q,N=-1,MaxIter=10,MaxDeg=-1,MultiLex=False,I
         cofactors_temp = []
         if Info:
             print "Starting iteration " + str(i) + "...\n"
-        G = F4(cofactors_temp,G,1,N=N,Ignore=toIgnore,Info=Info,MaxDeg=MaxDeg,Criterion=Criterion,OutputProd=True)
+        G = F4(cofactors_temp,G,1,N=N,Ignore=toIgnore,Info=Info,MaxDeg=MaxDeg,Criterion=Criterion,OutputProd=True,IterCount=i-1)
         toIgnore = toIgnoreOld
         cofactors += cofactors_temp
         #try normal order
@@ -968,13 +984,15 @@ def copyTriple(t):
 class Quiver:
     def __init__(self,triples):
         G = DiGraph(multiedges=True,loops=True)
+        self.__vars__ = []
         for (l,s,t) in triples:
-            G.add_edge(s,t,l)
+            G.add_edge(str(s),str(t),str(l))
+            if l not in self.__vars__:
+                self.__vars__.append(str(l))
         self.G = G
-        self.__vars__ = [l for (l,s,t) in triples]
 ############################################################################
     def plot(self):
-        G2 = self.G.plot(edge_labels=True)
+        G2 = self.G.plot(edge_labels=True,vertex_labels=False)
         G2.show()
 ############################################################################
     def vars(self):
@@ -987,22 +1005,22 @@ class Quiver:
         return [t for (s,t,l) in self.G.edge_iterator() if l == label]
 ############################################################################
     def __QSignatureMon__(self,m):
-        #check if mon = 0
+        #if mon = 0 return V x V
         if m.coeff == 0:
-            return []
+            return {pair for pair in itertools.product(self.G.vertices(),repeat=2)}
 
         m = m.mon.strip('*').split('*')
-        #check if mon = 1
+        #if mon = const. return {(v,v) | v\in V}
         if m == ['']:
-            return [(v,v) for v in self.G.vertex_iterator()]
+            return {(v,v) for v in self.G.vertex_iterator()}
 
         #usual case normal monomial
-        begin = [(s,t) for (s,t,l) in self.G.edge_iterator() if l == m[-1]]
+        begin = {(s,t) for (s,t,l) in self.G.edge_iterator() if l == m[-1]}
         for i in range(len(m)-2,-1,-1):
-            end = [(s,t) for (s,t,l) in self.G.edge_iterator() if l == m[i]]
-            comb = [(s1,t2) for ((s1,t1),(s2,t2)) in itertools.product(begin,end)]
+            end = {(s,t) for (s,t,l) in self.G.edge_iterator() if l == m[i]}
+            comb = {(s1,t2) for ((s1,t1),(s2,t2)) in itertools.product(begin,end) if t1 == s2}
             if len(comb) == 0:
-                return []
+                return set()
             begin = comb
         return begin
 ############################################################################
@@ -1013,10 +1031,22 @@ class Quiver:
             f = NCPoly(poly)
         monomials = f.tail + [f.lt]
         mon_signatures = [self.__QSignatureMon__(m) for m in monomials]
-        if all(s == mon_signatures[0] for s in mon_signatures):
-            return mon_signatures[0]
+        return set.intersection(*mon_signatures)
+ ############################################################################
+    def compatibleQ(self,poly):
+        return not len(self.QSignature(poly)) == 0
+ ############################################################################
+    def uniformlyCompatibleQ(self,poly):
+        if not self.compatibleQ(poly):
+            return False
+
+        if isinstance(poly,NCPoly):
+            f = poly
         else:
-            return []
+            f = NCPoly(poly)
+        monomials = f.tail + [f.lt]
+        mon_signatures = [self.__QSignatureMon__(m) for m in monomials]
+        return all([sig == mon_signatures[0] for sig in mon_signatures])
 ############################################################################
 # Stuff to execute
 ############################################################################
