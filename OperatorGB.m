@@ -355,57 +355,40 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 
 
 (* ::Text:: *)
-(*Approach from the PhD Thesis*)
+(*Approach from Phd (incl. Chain Criterion)*)
 
 
-Transform[Inclusion[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[wi,wj,{},{},i]
-Transform[Inclusion[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[{},{},wi,wj,j]
-Transform[Overlap[_,wi_,wj_,{i_,k_}],k_]:= Obstruction[{},wj,wi,{},i]
-Transform[Overlap[_,wi_,wj_,{k_,j_}],k_]:= Obstruction[wi,{},{},wj,j]
-
-
-DeleteRedundantPhD[amb_List]:= 
-Module[{Os,B={},pairs,selected,f,i,j,wi,wj,k},
-	Do[
-		selected = Transform[#,k]&/@Select[amb,Max[#[[4]]]===k&];
-		While[Length[selected] > 0,
-			f = First[selected];
-			AppendTo[Os,f];
-			(*selected = DeleteCases[selected,Alternatives@@(Obstruction[
-			MemberQ[
-			*)
-	
-		]
-	,{k,Max[amb[[All,4,2]]]}
-	];
-	B = Join[B,Os];
-	B
-]
-
-
-(* ::Text:: *)
-(*Approach from Mora*)
-
-
-DeleteRedundant[ambInput_List,OptionsPattern[{Info->False}]]:= 
-Module[{selected,i,amb,result,f,t},
+DeleteRedundant[ambInput_List,lt_List,OptionsPattern[{Info->False}]]:= 
+Module[{selected,k,result,amb,f,t,i,j,rules,V},
 	t = AbsoluteTiming[
-	result = {};
 	If[Length[ambInput]===0,Return[result]];
 	amb = SortBy[ambInput,Length[#[[1]]&]];
+	result = Flatten[Reap[
 	Do[
-		selected = Select[amb,Max[#[[4]]]===i &];
+		selected = Select[amb,Max[#[[4]]]===k &];
 		While[Length[selected] > 0,
 			f = First[selected];
 			selected = Drop[selected,1];
-			AppendTo[result,f];
-			selected = DeleteCases[selected,_[{___,Sequence@@f[[1]],___},__]];
+			V = Sequence@@f[[1]];
+			j = Min[f[[4]]];
+			(*Chain criterion: we can remove f if there is t in lt such that t|V and index(t) < V.min
+            So, we have to keep f if t|V is false for all V in lt[[;;f.min]]*)
+			If[NoneTrue[lt[[;;j-1]], {V} === {___,Sequence@@#,___}&],
+				Sow[f];
+			];
+			(* i_ = {i_,j_}*)
+			rules = {
+				_[{___,V,___},_,_,i_]:>{}/; j < Min[i],
+				_[{U___,V,W___},_,_,i_]:>{}/; j >= Min[i] && Length[{U,W}] > 0,
+				_[{V},A_,_,i_]:>{}/; j === Min[i] && Not[SortedQ[A,f[[2]]]]
+			};
+			selected = DeleteCases[selected/.rules,{}];
 		];
-		,{i,Min[Flatten[amb[[All,4]]]],Max[Flatten[amb[[All,4]]]]}
-	];
+		,{k,Min[Flatten[amb[[All,4]]]],Max[Flatten[amb[[All,4]]]]}
+	];][[2]]];
 	][[1]];
 	If[OptionValue[Info],
-		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
+		Print["Removed ", Length[ambInput] - Length[result], " ambiguities in ",t]];
 	result
 ]
 
@@ -554,7 +537,7 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	
 	(*process ambiguities*)
 	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb,Info->info]
+		amb = DeleteRedundant[amb,words[[All,1]],Info->info]
 	];
 	If[OptionValue[Sorted],amb = Sort[amb]];
 	
@@ -621,41 +604,6 @@ Module[{a,b,i,j,count,rules,info,occurring},
 	If[!OptionValue[OutputProd],
 		cofactors = ToNonCommutativeMultiply[cofactors];
 	];
-]
-
-
-(* ::Subsection::Closed:: *)
-(*Cofactor criterion*)
-
-
-(* ::Text:: *)
-(*Does f divide p?*)
-
-
-Divides[p_,f_,i_]:= 
-Module[{termsP,termsF,x,y},
-	termsP = Map[If[!CoeffQ[#[[1]]],{1,#},#]&,(MonomialList[p]/.Times->List)/.Prod->List];
-	termsF = Map[If[!CoeffQ[#[[1]]],{1,#},#]&,(MonomialList[f]/.Times->List)/.Prod->List];
-	If[MatchQ[termsP,Map[{#[[1]],{x___,Sequence@@#[[2]],y___}}&,termsF]],Print[i];{i},Nothing]
-]
-
-
-CofactorCriterion[spol_,cofactors_]:=
-Module[{cofactorPolies,toDelete,toDelete1, toDelete2, spolTerms,t,t1,t2,spolPolies},
-	t = AbsoluteTiming[
-	spolPolies = spol;
-	cofactorPolies = DeleteDuplicates[Flatten[Map[#/.List->Prod&,cofactors,{2}]]];
-	][[1]];
-	Print["Cofactors to Polies took ", t];	
-	t1 = AbsoluteTiming[
-	MakeMonic[spolPolies];
-	MakeMonic[cofactorPolies];
-	Print["All monic"];
-	toDelete1 = Outer[Divides,spolPolies,cofactorPolies,Range[Length[spol]]];
-	Print["Length[toDelete1] = ", Length[toDelete1]];
-	][[1]];
-	Print["Finding them took ", t1];
-	toDelete1
 ]
 
 
@@ -793,7 +741,7 @@ Module[{F,M,lt,columns,FPlus,a,c,t1,t2,t3,t4,cofactorsF,A,cofactors,pos,f,rule},
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*Additional stuff*)
 
 
@@ -834,7 +782,7 @@ Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 	][[1]];
 	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
 	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb,Info->info]
+		amb = DeleteRedundant[amb,words[[All,1]],Info->info]
 	];
 	If[sorted,amb = Sort[amb]];
 	
@@ -965,7 +913,7 @@ Module[{amb,spol,info,t1,t2,lists,rules,words,parallel},
 	
 	(*process ambiguities*)
 	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb,Info->info]
+		amb = DeleteRedundant[amb,words[[All,1]],Info->info]
 	];
 	If[OptionValue[Sorted],amb = Sort[amb]];
 	
@@ -1409,7 +1357,7 @@ RewriteCertify[varsInput_,cofactors_]:= Module[
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*End*)
 
 
@@ -1417,7 +1365,7 @@ Copyright[a_String,b___String]:=Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 
 Copyright[
-    "Package OperatorGB version 1.1.0",
+    "Package OperatorGB version 1.1.1",
     "Copyright 2019, Institute for Algebra, JKU",
     "written by Clemens Hofstadler"];
 
