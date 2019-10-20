@@ -114,7 +114,7 @@ Certify::usage="Certifies whether a certain claim is a consequence of some assum
 basis computations. Additionally, compatibility with a given quiver is checked."
 
 
-(*Begin["`Private`"]*)
+Begin["`Private`"]
 
 
 (* ::Subsection::Closed:: *)
@@ -361,31 +361,33 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 DeleteRedundant[ambInput_List,lt_List,OptionsPattern[{Info->False}]]:= 
 Module[{selected,k,result,amb,f,t,i,j,rules,V},
 	t = AbsoluteTiming[
-	If[Length[ambInput]===0,Return[result]];
-	amb = SortBy[ambInput,Length[#[[1]]&]];
-	result = Flatten[Reap[
-	Do[
-		selected = Select[amb,Max[#[[4]]]===k &];
-		While[Length[selected] > 0,
-			f = First[selected];
-			selected = Drop[selected,1];
-			V = Sequence@@f[[1]];
-			j = Min[f[[4]]];
-			(*Chain criterion: we can remove f if there is t in lt such that t|V and index(t) < V.min
-            So, we have to keep f if t|V is false for all V in lt[[;;f.min]]*)
-			If[NoneTrue[lt[[;;j-1]], {V} === {___,Sequence@@#,___}&],
-				Sow[f];
+	result = {};
+	If[Length[ambInput]> 0,
+		amb = SortBy[ambInput,Length[#[[1]]&]];
+		result = Flatten[Reap[
+		Do[
+			selected = Select[amb,Max[#[[4]]]===k &];
+			While[Length[selected] > 0,
+				f = First[selected];
+				selected = Drop[selected,1];
+				V = Sequence@@f[[1]];
+				j = Min[f[[4]]];
+				(*Chain criterion: we can remove f if there is t in lt such that t|V and index(t) < V.min
+				So, we have to keep f if t|V is false for all V in lt[[;;f.min]]*)
+				If[NoneTrue[lt[[;;j-1]], {V} === {___,Sequence@@#,___}&],
+					Sow[f];
+				];
+				(* i_ = {i_,j_}*)
+				rules = {
+					_[{___,V,___},_,_,i_]:>{}/; j < Min[i],
+					_[{U___,V,W___},_,_,i_]:>{}/; j >= Min[i] && Length[{U,W}] > 0,
+					_[{V},A_,_,i_]:>{}/; j === Min[i] && Not[SortedQ[A,f[[2]]]]
+				};
+				selected = DeleteCases[selected/.rules,{}];
 			];
-			(* i_ = {i_,j_}*)
-			rules = {
-				_[{___,V,___},_,_,i_]:>{}/; j < Min[i],
-				_[{U___,V,W___},_,_,i_]:>{}/; j >= Min[i] && Length[{U,W}] > 0,
-				_[{V},A_,_,i_]:>{}/; j === Min[i] && Not[SortedQ[A,f[[2]]]]
-			};
-			selected = DeleteCases[selected/.rules,{}];
-		];
-		,{k,Min[Flatten[amb[[All,4]]]],Max[Flatten[amb[[All,4]]]]}
-	];][[2]]];
+			,{k,Min[Flatten[amb[[All,4]]]],Max[Flatten[amb[[All,4]]]]}
+		];][[2]]];
+	];
 	][[1]];
 	If[OptionValue[Info],
 		Print["Removed ", Length[ambInput] - Length[result], " ambiguities in ",t]];
@@ -537,7 +539,7 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	
 	(*process ambiguities*)
 	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb,words[[All,1]],Info->info]
+		amb = DeleteRedundant[amb,words[[All,1]],Info->info];
 	];
 	If[OptionValue[Sorted],amb = Sort[amb]];
 	
@@ -1357,7 +1359,7 @@ RewriteCertify[varsInput_,cofactors_]:= Module[
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*End*)
 
 
@@ -1365,12 +1367,12 @@ Copyright[a_String,b___String]:=Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 
 Copyright[
-    "Package OperatorGB version 1.1.1",
+    "Package OperatorGB version 1.1.0",
     "Copyright 2019, Institute for Algebra, JKU",
     "written by Clemens Hofstadler"];
 
 
-(*End[]*)
+End[]
 
 
 EndPackage[]
