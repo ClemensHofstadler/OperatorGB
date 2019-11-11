@@ -453,7 +453,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 
 SetAttributes[Groebner,HoldFirst]
 
-Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->True,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True,IterCount->0}]]:=
+Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True,IterCount->0}]]:=
 Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -632,7 +632,7 @@ Module[{a,b,i,j,count,rules,info,occurring},
 
 SetAttributes[F4,HoldFirst];
 
-F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info->True,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
+F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
 Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactorsL,lc,a,b,rules},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -858,7 +858,7 @@ Module[{i,t,rules},
 (*	*)
 
 
-GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{Ignore->0, MaxDeg->Infinity,Info->True,Parallel->True,Sorted->False,Criterion->True}]]:=
+GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{Ignore->0, MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
 Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sorted,parallel,syslength,i},
 
 	info = OptionValue[Info];
@@ -1223,32 +1223,31 @@ PlotQuiver[Q:Quiver]:=
 	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Certify*)
 
 
-Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->True,Parallel->True,Sorted->False,Criterion->True}]]:=
- Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,redCofactors,k,l,count,assumptionsRed},
+Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
+ Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,claims,redCofactors,k,l,count,assumptionsRed},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
 	
 	assumptions = ToProd/@assumptionsInput;
 	assumptions = DeleteCases[assumptions,0];
+	
+	If[Head[claimsInput] === List,
+		claims = claimsInput,
+		claims = {claimsInput}
+	];
 
 	(*check compatibility of the assumptions and the claims*)
 	sigAssump = Map[UniformlyCompatibleQ[#,Q]&,assumptions];
 	If[MemberQ[sigAssump,False],
 		Print["The assumption ", Extract[assumptionsInput,Position[sigAssump,False][[1,1]]]," is not uniformly compatible with the quiver."]; Return[$Failed]
 	];
-	If[Head[claims] === List,
-		sigClaim = Map[QSignature[#,Q]&,claims];
-		If[MemberQ[sigClaim,{}], 
-			Print["The claim ", Extract[claims,Position[sigClaim,{}][[1,1]]]," is not compatible with the quiver."]; Return[$Failed]	
-		],
-		sigClaim = QSignature[claims,Q];
-		If[sigClaim === {},
-			Print["The claim ", claims, " is not compatible with the quiver."]; Return[$Failed]
-		]
+	sigClaim = Map[QSignature[#,Q]&,claims];
+	If[MemberQ[sigClaim,{}], 
+		Print["The claim ", Extract[claims,Position[sigClaim,{}][[1,1]]]," is not compatible with the quiver."]; Return[$Failed]	
 	];
 
 	(*set up the ring*)
@@ -1256,10 +1255,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 		Print["Using the following monomial ordering:"]
 	];
 	If[OptionValue[MultiLex],
-		knowns = DeleteDuplicates[If[Head[claims]===List,
-					Cases[Q[[All,1]],Alternatives@@Flatten[Map[#/.Alternatives[Plus,Times,NonCommutativeMultiply]->List&,claims]]],
-					Cases[Q[[All,1]],Alternatives@@Flatten[claims/.Alternatives[Plus,Times,NonCommutativeMultiply]->List]]
-					]];
+		knowns = DeleteDuplicates[Cases[Q[[All,1]],Alternatives@@Flatten[Map[#/.Alternatives[Plus,Times,NonCommutativeMultiply]->List&,claims]]]];
 		unknowns = DeleteDuplicates[Cases[Q[[All,1]],var_/;!MemberQ[knowns,var]]];
 		SetUpRing[knowns,unknowns,Info->info],
 		SetUpRing[DeleteDuplicates[Q[[All,1]]],Info->info]
@@ -1276,7 +1272,7 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	If[info, Print["Computing a (partial) Groebner basis and reducing the claim...\n"]];
 	(*do computation iteratively*)
 	cofactors = {};
-	If[Head[claims]===List,zeros = ConstantArray[0,Length[claims]],zeros=0];
+	zeros = ConstantArray[0,Length[claims]];
 	toIgnore = Length[assumptionsRed];
 	i = 1;
 	If[info,Print["Starting iteration ", i ,"...\n"]];
@@ -1309,18 +1305,23 @@ Certify[assumptionsInput_List,claims_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDe
 	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,assumptions];	
 	certificate = certificate/.rules;
 	(*convert back to NonCommutativeMultiply*)
-	certificate = If[Head[claims]===List,
-		ToNonCommutativeMultiply[Map[ExpandLeft[CollectLeft[#]]&,certificate]],
-		ToNonCommutativeMultiply[ExpandLeft[CollectLeft[certificate]]]
-	];
+	certificate = ToNonCommutativeMultiply[Map[ExpandLeft[CollectLeft[#]]&,certificate]];
+	
 	(*return the reduced claims and the linear combinations*)
-	If[info,
-		If[reduced === zeros,
-			Print["Done! All claims were successfully reduced to 0."],
-			Print["Done! Not all claims could be reduced to 0."]
-		]
+	If[Head[claimsInput] =!= List, 
+		sigClaim = sigClaim[[1]]; reduced = reduced[[1]]; certificate = certificate[[1]]; zeros = zeros[[1]];
 	];
-	{Map[QSignature[#,Q]&,assumptions],sigClaim,reduced,certificate}
+	
+	If[info,
+		(*full info*)
+		If[reduced === zeros,
+			Print["\nDone! All claims were successfully reduced to 0."],
+			Print["\nDone! Not all claims could be reduced to 0."]
+		];
+		{Map[QSignature[#,Q]&,assumptions],sigClaim,reduced,certificate},
+		(*only basic info*)
+		If[reduced === zeros, certificate, $Failed]
+	]
 ]
 
 
