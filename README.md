@@ -17,10 +17,12 @@ DONE:
   * Mathematica: change output for Certify depending on 'Info'
 
 TODO:
+
 Mathematica:
   * Certify only reduced to 0 once. (Maybe try again and save shortest linear comb.)
   * Certify/Groebner without Info => many new lines. Get rid of this
   * Update doc in sourcecode.
+  
 Sage:
   * same as above
   * change output for Certify depending on 'Info'
