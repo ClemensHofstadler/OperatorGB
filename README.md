@@ -11,3 +11,17 @@ Version 1.1.0 includes (for both programs):
   * Computing the signature of polynomials with respect to a quiver 
   * Checking compatibility as well uniform compatibliity of polynomials with a quiver
   * A 'Certify' command that does everything from checking compatibility, to computing a Groebner basis as well as a cofactor representation all fully automatically.
+
+DONE:
+  * Make documentation modular
+  * Mathematica: change output for Certify depending on 'Info'
+
+TODO:
+Mathematica:
+  * Certify only reduced to 0 once. (Maybe try again and save shortest linear comb.)
+  * Certify/Groebner without Info => many new lines. Get rid of this
+  * Update doc in sourcecode.
+Sage:
+  * same as above
+  * change output for Certify depending on 'Info'
+  * clean up package
