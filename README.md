@@ -13,13 +13,18 @@ Version 1.1.0 includes (for both programs):
   * A 'Certify' command that does everything from checking compatibility, to computing a Groebner basis as well as a cofactor representation all fully automatically.
 
 DONE:
+
+For both:
   * Make documentation modular
-  * Mathematica: change output for Certify depending on 'Info'
+  
+ Mathematica: 
+  * change output for Certify depending on 'Info'
+  * add functionality to autmatically generate trivial quiver from given polynomials
 
 TODO:
 
 Mathematica:
-  * Certify only reduced to 0 once. (Maybe try again and save shortest linear comb.)
+  * Certify only reduce to 0 once. (Maybe try again and save shortest linear comb.)
   * Certify/Groebner without Info => many new lines. Get rid of this
   * Update doc in sourcecode.
   
