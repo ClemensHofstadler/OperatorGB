@@ -3,7 +3,7 @@
 BeginPackage["OperatorGB`"]
 
 
-Global`OperatorGB::usage="A few definitions need to be made by the user. Type ?SetUpRing for more information.";
+Global`OperatorGB::usage="";
 
 
 Clear[
@@ -17,7 +17,7 @@ Clear[
 	GroebnerWithoutCofactors,ApplyRules,
 	CreateRedSys,ToPoly,Rewrite,MultiplyOut,Interreduce,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
-	adj,
+	adj,Pinv,AddAdj,
 	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,
 	Certify
 ]
@@ -99,6 +99,8 @@ ExpandRight::usage=""
 
 (*Adjungate operator definition*)
 adj::usage="adj[A] represents the adjoint of the operator A"
+Pinv::usage="Gives the 4 Moore-Penrose equations."
+AddAdj::usage="Adds the adjoint statements to a given list of statements."
 
 
 (*Quiver*)
@@ -107,6 +109,7 @@ QSignature::usage="QSignature[poly,Q] returns the signature of the polynomial po
 PlotQuiver::usage="Plot a quiver Q"
 CompatibleQ::usage="Tests whether a polynomial is compatible with a quiver."
 UniformlyCompatibleQ::usage="Tests whether a polynomial is uniformly compatible with a quiver."
+TrivialQuiver::usage="Returns the trivial quiver containing all variables of the given input."
 
 
 (*Certify*)
@@ -168,7 +171,7 @@ Module[{string},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Ordering*)
 
 
@@ -431,7 +434,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Groebner basis*)
 
 
@@ -609,7 +612,7 @@ Module[{a,b,i,j,count,rules,info,occurring},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*F4*)
 
 
@@ -683,7 +686,7 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactor
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*Symbolic Preprocessing & Reduction*)
 
 
@@ -841,7 +844,7 @@ Module[{i,t,rules},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Groebner basis without cofactors*)
 
 
@@ -1110,7 +1113,7 @@ Module[{x},
 
 
 (* ::Subsection::Closed:: *)
-(*Adjungate operator definition*)
+(*Adjungate operator definition & auxiliary stuff*)
 
 
 (* ::Text:: *)
@@ -1132,7 +1135,14 @@ adj[Times[a_?CoeffQ,NonCommutativeMultiply[b___]]]:= a adj[NonCommutativeMultipl
 adj[Times[a_?CoeffQ,b_]]:=a adj[b]
 
 
-(* ::Subsection::Closed:: *)
+Pinv[a_] := {a**SuperDagger[a]**a-a,SuperDagger[a]**a**SuperDagger[a]- SuperDagger[a],adj[SuperDagger[a]]**adj[a]-a**SuperDagger[a],adj[a]**adj[SuperDagger[a]]-SuperDagger[a]**a};
+Pinv[a_,b_] := {a**b**a-a,b**a**b- b,adj[b]**adj[a]-a**b,adj[a]**adj[b]-b**a};
+
+
+AddAdj[S_List] := Join[S,adj/@S];
+
+
+(* ::Subsection:: *)
 (*Quiver*)
 
 
@@ -1223,12 +1233,18 @@ PlotQuiver[Q:Quiver]:=
 	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
 
 
+TrivialQuiver[F_]:= Module[{vars,v},
+	vars = DeleteDuplicates[Select[(ToProd/@F)/.{Prod->List,Plus->List,Times->List}//Flatten,!CoeffQ[#]&]];
+	Table[{v,1,1},{v,vars}]
+]
+
+
 (* ::Subsection:: *)
 (*Certify*)
 
 
 Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
- Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,claims,redCofactors,k,l,count,assumptionsRed},
+ Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,claims,redCofactors,k,l,count,assumptionsRed,a,b},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
 	
@@ -1305,6 +1321,7 @@ Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,
 	rules = MapIndexed[{a_,#1,b_}->{a/lc[[First[#2]]],Expand[lc[[First[#2]]]*#1],b}&,assumptions];	
 	certificate = certificate/.rules;
 	(*convert back to NonCommutativeMultiply*)
+	
 	certificate = ToNonCommutativeMultiply[Map[ExpandLeft[CollectLeft[#]]&,certificate]];
 	
 	(*return the reduced claims and the linear combinations*)
@@ -1334,13 +1351,13 @@ RewriteCertify[varsInput_,cofactors_]:= Module[
 		vars = toReduce
 	];
 				
-	toAdd = Position[cofactors[[All,1]],Alternatives@@vars[[All,2]]];
+	toAdd = Position[cofactors[[All,1]],Alternatives@@vars[[All,2]],{1}];
 	occurring = {};
 	(*find all cofactors actually appearing in the certificate*)
 	While[toAdd =!= {},
 		occurring = Join[occurring,toAdd];
 		g = Extract[cofactors,toAdd];
-		toAdd = Flatten[Map[Position[cofactors[[All,1]],Alternatives@@#[[2,All,2]]]&,g],1];
+		toAdd = Flatten[Map[Position[cofactors[[All,1]],Alternatives@@#[[2,All,2]],{1}]&,g],1];
 		toAdd = Complement[toAdd,occurring];
 	];
 	If[occurring === {},
@@ -1368,7 +1385,7 @@ Copyright[a_String,b___String]:=Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 
 Copyright[
-    "Package OperatorGB version 1.1.0",
+    "Package OperatorGB version 1.1.1",
     "Copyright 2019, Institute for Algebra, JKU",
     "written by Clemens Hofstadler"];
 
