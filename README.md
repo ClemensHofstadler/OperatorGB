@@ -24,6 +24,7 @@ For both:
 TODO:
 
 Mathematica:
+  * Info: version that prints only some information
   * Certify only reduce to 0 once. (Maybe try again and save shortest linear comb.)
   * Certify/Groebner without Info => many new lines. Get rid of this
   * Update doc in sourcecode.
