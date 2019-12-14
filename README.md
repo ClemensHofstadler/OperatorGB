@@ -20,10 +20,13 @@ For both:
  Mathematica: 
   * change output for Certify depending on 'Info'
   * add functionality to autmatically generate trivial quiver from given polynomials
+  * generalize MultiLex ordering to several blocks
+  * Q-order-compatible
 
 TODO:
 
 Mathematica:
+  * Q-completion
   * Info: version that prints only some information
   * Certify only reduce to 0 once. (Maybe try again and save shortest linear comb.)
   * Certify/Groebner without Info => many new lines. Get rid of this
