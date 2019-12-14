@@ -18,7 +18,7 @@ Clear[
 	CreateRedSys,ToPoly,Rewrite,MultiplyOut,Interreduce,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,Pinv,AddAdj,
-	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,
+	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,
 	Certify
 ]
 
@@ -110,6 +110,8 @@ PlotQuiver::usage="Plot a quiver Q"
 CompatibleQ::usage="Tests whether a polynomial is compatible with a quiver."
 UniformlyCompatibleQ::usage="Tests whether a polynomial is uniformly compatible with a quiver."
 TrivialQuiver::usage="Returns the trivial quiver containing all variables of the given input."
+QOrderCompatibleQ::usage="Tests whether a polynomial is Q-order-compatible with a quiver and the order defined by SetUpRing."
+QConsequenceQ::usage="Tests whether a certificate is a Q-consequence of a set of polynomials and a quiver."
 
 
 (*Certify*)
@@ -171,7 +173,7 @@ Module[{string},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Ordering*)
 
 
@@ -434,7 +436,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Groebner basis*)
 
 
@@ -612,7 +614,7 @@ Module[{a,b,i,j,count,rules,info,occurring},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*F4*)
 
 
@@ -844,7 +846,7 @@ Module[{i,t,rules},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Groebner basis without cofactors*)
 
 
@@ -1142,7 +1144,7 @@ Pinv[a_,b_] := {a**b**a-a,b**a**b- b,adj[b]**adj[a]-a**b,adj[a]**adj[b]-b**a};
 AddAdj[S_List] := Join[S,adj/@S];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Quiver*)
 
 
@@ -1179,7 +1181,7 @@ QSignature[l_List,Q:Quiver]:= Map[QSignature[#,Q]&,l]
 
 
 QSignature[p_,Q:Quiver]:=
-Module[{monomials,m,results,i,begin,end,comb,vertices},
+Module[{monomials,m,results,i,begin,end,comb,vertices,x},
 	monomials = (MonomialList[ToProd[p]]/.c__*Prod[x___]->Prod[x])/.Prod->List;
 	Sort[Catch[
 	(*base case: only one mononmial*)
@@ -1239,7 +1241,110 @@ TrivialQuiver[F_]:= Module[{vars,v},
 ]
 
 
-(* ::Subsection:: *)
+QOrderCompatibleQ[p_,Q_]:= Module[{lm},
+	lm = ToProd[LeadingTerm[p][[2]]];
+	QSignature[lm,Q] === QSignature[p,Q]
+]
+
+
+QConsequenceQ[certificate_,F_,Q_]:= Module[{f,signaturef},
+	f = MultiplyOut[certificate];
+	signaturef = QSignature[f,Q];
+	
+	(* f has to be compatible *)
+	If[signaturef === {}, Return[False]];
+	
+	(* Q-consequence test has to pass for each summand in the certificate *)
+	!MemberQ[Map[QConsequenceTest[#,signaturef,Q]&,certificate],False]
+]
+
+
+QConsequenceTest[{ai_,gi_,bi_},signaturef_,Q_]:= Module[{sigGi,sigMonomials,mi},
+	(* check if there is m_i \in \supp(g_i) s.t. \sigma(m_i) = \sigma(g_i) *)
+	sigGi = QSignature[gi,Q];
+	sigMonomials = QSignature[MonomialList[gi],Q];
+	If[!MemberQ[sigMonomials,sigGi], Return[False]];
+	
+	(* check if \sigma(f) \subseteq \sigma(a_i m_i b_i) *)
+	mi = Extract[MonomialList[gi],FirstPosition[sigMonomials,sigGi,1]];
+	SubsetQ[QSignature[Prod[ai,mi,bi],Q],signaturef]
+]
+
+
+(* ::Subsubsection::Closed:: *)
+(*Q-completion*)
+
+
+SetAttributes[QCompletion,HoldFirst]
+
+QCompletion[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True,IterCount->0}]]:=
+Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
+	info = OptionValue[Info];
+	sorted = OptionValue[Sorted];
+	parallel = OptionValue[Parallel];
+	maxdeg = OptionValue[MaxDeg];
+	outputProd = OptionValue[OutputProd];
+	criterion = OptionValue[Criterion];
+
+	If[Head[cofactors]=!=List,cofactors={}];
+	
+	G = CreateRedSys[ideal];
+	oldlength = Length[G];
+	t1 = 0; t2 = 0; count = 0;
+	If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
+
+	spol = CheckResolvability[G,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+	rules = ExtractRules[G];
+
+	While[Length[spol] > 0 && count < maxiter,
+		t1 = AbsoluteTiming[
+		i = Length[spol];
+		Monitor[Do[
+			(*reduce it*)
+			r = Reap[p[[1]]//.rules]; 
+			h = r[[1]];
+			If[h =!= 0,
+				If[Length[r[[2]]] > 0,
+					p[[2]]\[NonBreakingSpace]= Join[p[[2]],r[[2,1]]]
+				];
+				lt = LeadingTerm[h];
+				If[lt[[1]] =!= 1, 
+					h = Expand[1/lt[[1]]*h]; p[[2]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[2]])
+				];
+				hrule = CreateRedSys[h];
+				AppendTo[G,hrule];
+				AppendTo[cofactors,{h,p[[2]]}]; 
+				AppendTo[rules,Sequence@@ExtractRules[{hrule}]];
+			];
+			i--;
+		,{p,spol}];,i];][[1]];
+
+		If[info, Print["The second reduction took ", t1]];
+		count++;
+		If[info,Print["Iteration ",count + OptionValue[IterCount], " finished. G has now ", Length[G]," elements\n"]];
+		If[count < maxiter, 
+			spol = CheckResolvability[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+			oldlength = Length[G];
+		];
+	];
+	
+	G = ToPoly[G];
+	
+	If[OptionValue[Rewrite],
+		If[info, Print["Rewriting the cofactors has started."]];
+		t2 = AbsoluteTiming[
+			RewriteGroebner[cofactors,Info->info,OutputProd->outputProd];
+		][[1]];
+		If[info, Print["Rewriting the cofactors took in total ", t2]];
+	];
+	If[outputProd,
+		G,
+		ToNonCommutativeMultiply[G]
+	]
+]
+
+
+(* ::Subsection::Closed:: *)
 (*Certify*)
 
 
