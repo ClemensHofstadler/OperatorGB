@@ -9,6 +9,7 @@ Global`OperatorGB::usage="";
 Clear[
 	CoeffQ,Prod,ToProd,ToNonCommutativeMultiply,
 	SetUpRing,
+	WordOrder,varSets,
 	LeadingTerm,DegLex,WeightedDegLex,MultiLex,Weight,SortedQ,
 	GenerateAmbiguities,
 	Groebner,
@@ -19,7 +20,7 @@ Clear[
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,Pinv,AddAdj,
 	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,
-	Certify
+	Certify,MaxIter,MaxDeg,Info,Parallel,Sorted,Criterion
 ]
 
 
@@ -158,18 +159,19 @@ If[OptionValue[Info],
 );
 
 
-SetUpRing[knowns_List,unknowns_List,OptionsPattern[{Info->True}]]:= 
-Module[{string},
-	WordOrder = Join[knowns,unknowns]; 
-	Knowns = knowns; 
-	Unknowns = unknowns;
+SetUpRing[S1_List,SRest:_List..,OptionsPattern[{Info->True}]]:= Module[{string},
+	WordOrder = Flatten[Join[S1,SRest]]; 
+	varSets = {S1,SRest};
 	SortedQ := MultiLex;
 	If[OptionValue[Info],
-		string = Sequence@@Map[ToString[#,StandardForm]<>" < "&,knowns[[;;-2]]] <> ToString[knowns[[-1]],StandardForm];
-		string = string <> " << ";
-		string = string <> Sequence@@Map[ToString[#,StandardForm]<>" < "&,unknowns[[;;-2]]] <> ToString[unknowns[[-1]],StandardForm];
-		Print[string];
+		string = "";
+		Do[
+			string = string <> Sequence@@Map[ToString[#,StandardForm]<>" < "&,S[[;;-2]]] <> ToString[S[[-1]],StandardForm];
+			string = string <> " << ";
+		,{S,varSets}];
+		Print[StringTake[string,{1,-4}]];
 	];
+	varSets = Reverse[varSets];
 ]
 
 
@@ -205,16 +207,16 @@ Module[{terms},
 (*Multigraded Lexicographic order*)
 
 
-MultiLex[a_List,b_List]:= 
-Module[{V1a,V2a,V1b,V2b},
-	V1a = Count[a,Alternatives@@Unknowns];
-	V2a = Count[a,Alternatives@@Knowns];
-	V1b = Count[b,Alternatives@@Unknowns];
-	V2b = Count[b,Alternatives@@Knowns];
-
-	If[(V1a < V1b) || (V1a === V1b && V2a < V2b), Return[True]];
-	If[(V1a > V1b) || (V1a === V1b && V2a > V2b), Return[False]];
-	DegLex[a,b]
+MultiLex[a_List,b_List]:= Module[{Va,Vb},
+Catch[
+	Do[
+		Va = Count[a,Alternatives@@S];
+		Vb = Count[b,Alternatives@@S];
+		If[Va < Vb, Throw[True]];
+		If[Va > Vb, Throw[False]];
+	,{S,varSets}];
+	Throw[DegLex[a,b]];
+]
 ]
 
 
