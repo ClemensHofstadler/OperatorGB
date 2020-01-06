@@ -11,7 +11,7 @@ Clear[
 	SetUpRing,
 	WordOrder,varSets,
 	LeadingTerm,DegLex,WeightedDegLex,MultiLex,Weight,SortedQ,
-	GenerateAmbiguities,
+	ExtractReducibleWords,GenerateAmbiguities,
 	Groebner,
 	F4,
 	ReducedForm,
@@ -57,17 +57,18 @@ M1 and M2 have to be given in form of lists containig only elements from the lis
 
 
 (*ambiguities*)
+ExtractReducibleWords::usage="Preprocessing before GenerateAmbiguities."
 GenerateAmbiguities::usage="GenerateAmbiguities[words] computes all ambigutites among all words in the set 'words'."
 
 
 (*Groebner basis*)
-Groebner::usage="Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]True,Parallel->True,Sorted->False}]] executes at most maxiter iterations of the Buchberger algorithm to compute
+Groebner::usage="Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]True,Parallel->True,Sorted->True}]] executes at most maxiter iterations of the Buchberger algorithm to compute
 a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list of cofactors is saved in the list cofactors forming a linear combination of the new element. For further information concerning the OptionPatterns
 please see the documentation or the source code."
 
 
 (*F4)*)
-F4::usage="F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]True,Parallel->True,Sorted->False}]] executes at most maxiter iterations of Faugere's F4 algorithm to compute
+F4::usage="F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]True,Parallel->True,Sorted->True}]] executes at most maxiter iterations of Faugere's F4 algorithm to compute
 a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list of cofactors is saved in the list cofactors forming a linear combination of the new element. For further information concerning the OptionPatterns
 please see the source code."
 
@@ -78,7 +79,7 @@ be a list of expressions, then all expressions are reduced."
 
 
 (*Groebner basis without cofactors*)
-GroebnerWithoutCofactors::usage="GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,Criterion->True}]] executes at most maxiter iterations 
+GroebnerWithoutCofactors::usage="GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,Criterion->True}]] executes at most maxiter iterations 
 of the Buchberger algorithm to compute a (partial) Groebner basis of an ideal. For further information concerning the OptionPatterns please see the documentation or the source code."
 ApplyRules::usage="ApplyRules[exp,G] reduces the expression exp using polynomials from the set G."
 
@@ -362,42 +363,29 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 
 
 (* ::Text:: *)
-(*Approach from Phd (incl. Chain Criterion)*)
+(*Chain Criterion*)
 
 
-DeleteRedundant[ambInput_List,lt_List,OptionsPattern[{Info->False}]]:= 
-Module[{selected,k,result,amb,f,t,i,j,rules,V},
+DeleteRedundant[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+Module[{result,t,i,j,possibilities,V},
 	t = AbsoluteTiming[
-	result = {};
-	If[Length[ambInput]> 0,
-		amb = SortBy[ambInput,Length[#[[1]]&]];
-		result = Flatten[Reap[
-		Do[
-			selected = Select[amb,Max[#[[4]]]===k &];
-			While[Length[selected] > 0,
-				f = First[selected];
-				selected = Drop[selected,1];
-				V = Sequence@@f[[1]];
-				j = Min[f[[4]]];
-				(*Chain criterion: we can remove f if there is t in lt such that t|V and index(t) < V.min
-				So, we have to keep f if t|V is false for all V in lt[[;;f.min]]*)
-				If[NoneTrue[lt[[;;j-1]], {V} === {___,Sequence@@#,___}&],
-					Sow[f];
-				];
-				(* i_ = {i_,j_}*)
-				rules = {
-					_[{___,V,___},_,_,i_]:>{}/; j < Min[i],
-					_[{U___,V,W___},_,_,i_]:>{}/; j >= Min[i] && Length[{U,W}] > 0,
-					_[{V},A_,_,i_]:>{}/; j === Min[i] && Not[SortedQ[A,f[[2]]]]
-				};
-				selected = DeleteCases[selected/.rules,{}];
-			];
-			,{k,Min[Flatten[amb[[All,4]]]],Max[Flatten[amb[[All,4]]]]}
-		];][[2]]];
-	];
+	i = 0;
+	result = amb;
+	Do[
+		V = Sequence@@lt[[i]];
+		possibilities = With[{idx = i},Alternatives@@{
+			_[{___,V,___},_,_,ij_] /; idx < Min[ij], 
+			Overlap[_,{___,V,___},_,_],
+			Overlap[_,_,{___,V,___},_],
+			Overlap[{_,___,V,___,_},_,_,_],
+		     Inclusion[_,{___,V,___},_,{i_,j_}]/; i < idx,
+		    Inclusion[_,_,{___,V,___},{i_,j_}]/; j < idx
+		}];
+		result = DeleteCases[result,possibilities],
+		{i,Length[lt]}];
 	][[1]];
 	If[OptionValue[Info],
-		Print["Removed ", Length[ambInput] - Length[result], " ambiguities in ",t]];
+		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
 	result
 ]
 
@@ -451,7 +439,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 (*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
 (*	- Info (default: True): Prints information about the computation progress.*)
 (*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
-(*	- Sorted (default: False):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
+(*	- Sorted (default: True):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
 (*	- OutputProd (default: False): If this OptionPattern is set to True, the output, i.e. the Groebner basis and the list of cofactors, is given in the Prod data structure. Otherwise, Mathematica's*)
 (*	non-commutative multiplication is used.*)
 (*	- Rewrite (default: True): Determines whether the cofactors are rewritten in terms of the generators of the ideal. If not, the cofactors consist of all elements of the returned Groebner basis.*)
@@ -460,7 +448,7 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 
 SetAttributes[Groebner,HoldFirst]
 
-Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True,IterCount->0}]]:=
+Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,OutputProd->False,Rewrite->True,IterCount->0}]]:=
 Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -532,7 +520,7 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 (*For a description of the OptionPatterns see the documentation of the Groebner method.*)
 
 
-CheckResolvability[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
+CheckResolvability[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True}]]:=
 Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	info = OptionValue[Info];
 	parallel = OptionValue[Parallel];
@@ -548,7 +536,7 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	If[OptionValue[Criterion],
 		amb = DeleteRedundant[amb,words[[All,1]],Info->info];
 	];
-	If[OptionValue[Sorted],amb = Sort[amb]];
+	If[OptionValue[Sorted],amb = SortBy[amb,Length[#[[1]]]&]];
 	
 	(*generate S-polynomials*)
 	t2 = AbsoluteTiming[
@@ -576,6 +564,8 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	If[info,Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]];
 	spol
 ]
+
+
 
 
 (* ::Text:: *)
@@ -630,7 +620,7 @@ Module[{a,b,i,j,count,rules,info,occurring},
 (*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
 (*	- Info (default: True): Prints information about the computation progress.*)
 (*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
-(*	- Sorted (default: False):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
+(*	- Sorted (default: True):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
 (*	- OutputProd (default: False): If this OptionPattern is set to True, the output, i.e. the Groebner basis and the list of cofactors, is given in the Prod data structure. Otherwise, Mathematica's*)
 (*	non-commutative multiplication is used.*)
 (*	- Rewrite (default: True): Determines whether the cofactors are rewritten in terms of the generators of the ideal. If not, the cofactors consist of all elements of the returned Groebner basis.*)
@@ -639,7 +629,7 @@ Module[{a,b,i,j,count,rules,info,occurring},
 
 SetAttributes[F4,HoldFirst];
 
-F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True}]]:=
+F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,OutputProd->False,Rewrite->True}]]:=
 Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactorsL,lc,a,b,rules},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -776,7 +766,7 @@ SPolyF4[amb:_Overlap|_Inclusion,fi_,fj_]:=
 	]
 
 
-CheckResolvabilityF4[G_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False}]]:=
+CheckResolvabilityF4[G_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True}]]:=
 Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 
 	info = OptionValue[Info];
@@ -793,7 +783,7 @@ Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 	If[OptionValue[Criterion],
 		amb = DeleteRedundant[amb,words[[All,1]],Info->info]
 	];
-	If[sorted,amb = Sort[amb]];
+	If[sorted,amb = SortBy[amb,Length[#[[1]]]&]];
 	
 	(*generate S-polynomials*)
 	t2 = AbsoluteTiming[
@@ -861,11 +851,11 @@ Module[{i,t,rules},
 (*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
 (*	- Info (default: True): Prints information about the computation progress.*)
 (*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
-(*	- Sorted (default: False):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
+(*	- Sorted (default: True):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
 (*	*)
 
 
-GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{Ignore->0, MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
+GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{Ignore->0, MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,Criterion->True}]]:=
 Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sorted,parallel,syslength,i},
 
 	info = OptionValue[Info];
@@ -906,7 +896,7 @@ Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sor
 ]
 
 
-CheckResolvability2[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Sorted->False,Parallel->True}]]:=
+CheckResolvability2[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Sorted->True,Parallel->True}]]:=
 Module[{amb,spol,info,t1,t2,lists,rules,words,parallel},
 	info = OptionValue[Info];
 	parallel = OptionValue[Parallel];
@@ -924,7 +914,7 @@ Module[{amb,spol,info,t1,t2,lists,rules,words,parallel},
 	If[OptionValue[Criterion],
 		amb = DeleteRedundant[amb,words[[All,1]],Info->info]
 	];
-	If[OptionValue[Sorted],amb = Sort[amb]];
+	If[OptionValue[Sorted],amb = SortBy[amb,Length[#[[1]]]&]];
 	
 	(*generate and reduce S-polynomials*)
 	t2 = AbsoluteTiming[
@@ -1018,6 +1008,9 @@ Module[{a,b,i,j,rules,occurring,result,spolfactors,cofactors},
 
 
 MultiplyOut[cofactors_List]:=Expand[ToNonCommutativeMultiply[Total[Map[ToProd,cofactors]]]]
+
+
+IsLinearCombination[triples_List, G_List] := AllTrue[triples[[All,2]],MemberQ[G,#]&]
 
 
 SetAttributes[MakeMonic,HoldFirst];
@@ -1250,6 +1243,12 @@ QOrderCompatibleQ[p_,Q_]:= Module[{lm},
 
 
 QConsequenceQ[certificate_,F_,Q_]:= Module[{f,signaturef},
+	(* check if certificate is indeed a liner combination of elements in F *)
+	If[!IsLinearCombination[certificate,F],
+		Print["The input is not a linear combination of elements of the given set."];
+		Return[False]
+	];  
+
 	f = MultiplyOut[certificate];
 	signaturef = QSignature[f,Q];
 	
@@ -1273,13 +1272,13 @@ QConsequenceTest[{ai_,gi_,bi_},signaturef_,Q_]:= Module[{sigGi,sigMonomials,mi},
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*Q-completion*)
 
 
 SetAttributes[QCompletion,HoldFirst]
 
-QCompletion[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->False,OutputProd->False,Rewrite->True,IterCount->0}]]:=
+QCompletion[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,OutputProd->False,Rewrite->True,IterCount->0}]]:=
 Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -1350,7 +1349,7 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 (*Certify*)
 
 
-Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->False,Criterion->True}]]:=
+Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->True,Criterion->True}]]:=
  Module[{info,maxiter,reduced,vars,cofactors,G,sigAssump,sigClaim,certificate,rules,lc,toIgnore,toIgnoreOld,zeros,i,knowns,unknowns,t,assumptions,claims,redCofactors,k,l,count,assumptionsRed,a,b},
 	info = OptionValue[Info];
 	maxiter = OptionValue[MaxIter];
