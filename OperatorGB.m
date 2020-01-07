@@ -16,7 +16,7 @@ Clear[
 	F4,
 	ReducedForm,
 	GroebnerWithoutCofactors,ApplyRules,
-	CreateRedSys,ToPoly,Rewrite,MultiplyOut,Interreduce,
+	CreateRedSys,ToPoly,Rewrite,MultiplyOut,IsLinearCombination,Interreduce,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,Pinv,AddAdj,
 	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,
@@ -89,6 +89,7 @@ CreateRedSys::usage="Converts polynomials into the data structure needed for the
 ToPoly::usage="Converts an element of a reduction system back into a polynomial."
 Rewrite::usage="Rewrite[vars, cofactors] rewrites a linear combination, which is safed in vars, with the elements from cofactors."
 MultiplyOut::usage="To multiply out a list of cofactors given in terms of the built in non-commutative multiplication."
+IsLinearCombination::usage="Checks whether a given set of triples is a linear combination of a set of polynomials."
 Interreduce::usage="Interreduce[ideal_] interreduces the polynomials in 'ideal'."
 
 
