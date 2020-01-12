@@ -11,7 +11,7 @@ Clear[
 	SetUpRing,
 	WordOrder,varSets,
 	LeadingTerm,DegLex,WeightedDegLex,MultiLex,Weight,SortedQ,
-	ExtractReducibleWords,GenerateAmbiguities,
+	ExtractReducibleWords,GenerateAmbiguities,Overlap,Inclusion,DeleteRedundant,
 	Groebner,
 	F4,
 	ReducedForm,
@@ -20,6 +20,7 @@ Clear[
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,Pinv,AddAdj,
 	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,
+	QCompletion,
 	Certify,MaxIter,MaxDeg,Info,Parallel,Sorted,Criterion
 ]
 
@@ -57,8 +58,11 @@ M1 and M2 have to be given in form of lists containig only elements from the lis
 
 
 (*ambiguities*)
+Overlap::usage="Datastructure for overlap ambiguities."
+Inclusion::usage="Datastructure for inclusion ambiguities."
 ExtractReducibleWords::usage="Preprocessing before GenerateAmbiguities."
 GenerateAmbiguities::usage="GenerateAmbiguities[words] computes all ambigutites among all words in the set 'words'."
+DeleteRedundant::usage="Chain criterion to remove redundant ambiguities."
 
 
 (*Groebner basis*)
@@ -115,6 +119,10 @@ UniformlyCompatibleQ::usage="Tests whether a polynomial is uniformly compatible 
 TrivialQuiver::usage="Returns the trivial quiver containing all variables of the given input."
 QOrderCompatibleQ::usage="Tests whether a polynomial is Q-order-compatible with a quiver and the order defined by SetUpRing."
 QConsequenceQ::usage="Tests whether a certificate is a Q-consequence of a set of polynomials and a quiver."
+
+
+(*Q-completion*)
+QCompletion::usage="Q-completion procedure"
 
 
 (*Certify*)
@@ -352,13 +360,13 @@ Module[{k},
 (*All ambiguities*)
 
 
-GenerateAmbiguities[l_List,newpart_List,maxdeg_,OptionsPattern[Parallel->True]]:= 
+GenerateAmbiguities[l_List,newpart_List,maxdeg_:Infinity,OptionsPattern[Parallel->True]]:= 
 	Select[Join[GenerateOverlaps[l,newpart,Parallel->OptionValue[Parallel]],
 		GenerateInclusions[l,newpart,Parallel->OptionValue[Parallel]],
 		GenerateAmbiguities[newpart,maxdeg,Parallel->OptionValue[Parallel]]], Length[#[[1]]] <= maxdeg &]
 
 
-GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] := 
+GenerateAmbiguities[l_List,maxdeg_:Infinity,OptionsPattern[Parallel->True]] := 
 	Select[Join[GenerateOverlaps[l,Parallel->OptionValue[Parallel]],
 		GenerateInclusions[l,Parallel->OptionValue[Parallel]]], Length[#[[1]]] <= maxdeg &]
 
@@ -368,19 +376,19 @@ GenerateAmbiguities[l_List,maxdeg_,OptionsPattern[Parallel->True]] :=
 
 
 DeleteRedundant[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
-Module[{result,t,i,j,possibilities,V},
+Module[{result,t,i,j,possibilities,V,A,C,W},
 	t = AbsoluteTiming[
 	i = 0;
 	result = amb;
 	Do[
 		V = Sequence@@lt[[i]];
 		possibilities = With[{idx = i},Alternatives@@{
-			_[{___,V,___},_,_,ij_] /; idx < Min[ij], 
+			_[{___,V,___},_,_,{i_,j_}] /; idx < i && idx < j,
 			Overlap[_,{___,V,___},_,_],
 			Overlap[_,_,{___,V,___},_],
 			Overlap[{_,___,V,___,_},_,_,_],
-		     Inclusion[_,{___,V,___},_,{i_,j_}]/; i < idx,
-		    Inclusion[_,_,{___,V,___},{i_,j_}]/; j < idx
+		    Inclusion[_,{___,V,___},_,{i_,j_}]/; i < idx,
+		    Inclusion[_,_,{___,V,___},{i_,j_}]/; i < idx
 		}];
 		result = DeleteCases[result,possibilities],
 		{i,Length[lt]}];
@@ -546,7 +554,7 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 			ParallelMap[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],
 			Map[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb]
 		]
-	,{0,___}];
+	,{0,_}];
 	][[1]];
 	If[info,Print["Generating S-polys: ",t2 ," (",Length[spol], " in total)"]];
 	
@@ -560,7 +568,7 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 												{r[[1]],#[[2]]}
 												],
 											{}
-											])&,spol],{}],First];
+											])&,spol],{}],#[[1]]&];
 	][[1]];
 	If[info,Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]];
 	spol
@@ -1342,6 +1350,144 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 	If[outputProd,
 		G,
 		ToNonCommutativeMultiply[G]
+	]
+]
+
+
+(* ::Subsection::Closed:: *)
+(*Q-Completion*)
+
+
+SetAttributes[QCompletion,HoldFirst]
+
+QCompletion[cofactors_,ideal_, Q:Quiver, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,OutputProd->False,Rewrite->True,IterCount->0}]]:=
+Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
+	info = OptionValue[Info];
+	sorted = OptionValue[Sorted];
+	parallel = OptionValue[Parallel];
+	maxdeg = OptionValue[MaxDeg];
+	outputProd = OptionValue[OutputProd];
+	criterion = OptionValue[Criterion];
+
+	If[Head[cofactors]=!=List,cofactors={}];
+	
+	G = CreateRedSys[ideal];
+	oldlength = Length[G];
+	t1 = 0; t2 = 0; count = 0;
+	If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
+
+	spol = CheckQResolvability[G,Q,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+	rules = ExtractRules[G];
+
+	While[Length[spol] > 0 && count < maxiter,
+		t1 = AbsoluteTiming[
+		i = Length[spol];
+		Monitor[Do[
+			(*reduce it*)
+			r = Reap[p[[2]]//.rules]; 
+			h = r[[1]];
+			(* here we have to check also that h is \leq_Q-compatible and that \sigma(h) \subseteq \sigma(\source(a))*)
+			If[h =!= 0 && QOrderCompatibleQ[h,Q] && SubsetQ[QSignature[p[[1]],Q],QSignature[h,Q]],
+				If[Length[r[[2]]] > 0,
+					p[[3]]\[NonBreakingSpace]= Join[p[[3]],r[[2,1]]]
+				];
+				lt = LeadingTerm[h];
+				If[lt[[1]] =!= 1, 
+					h = Expand[1/lt[[1]]*h]; p[[3]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[3]])
+				];
+				hrule = CreateRedSys[h];
+				AppendTo[G,hrule];
+				AppendTo[cofactors,{h,p[[3]]}]; 
+				AppendTo[rules,Sequence@@ExtractRules[{hrule}]];
+			];
+			i--;
+		,{p,spol}];,i];][[1]];
+
+		If[info, Print["The second reduction took ", t1]];
+		count++;
+		If[info,Print["Iteration ",count + OptionValue[IterCount], " finished. G has now ", Length[G]," elements\n"]];
+		If[count < maxiter, 
+			spol = CheckQResolvability[G,Q,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+			oldlength = Length[G];
+		];
+	];
+	
+	G = ToPoly[G];
+	
+	If[OptionValue[Rewrite],
+		If[info, Print["Rewriting the cofactors has started."]];
+		t2 = AbsoluteTiming[
+			RewriteGroebner[cofactors,Info->info,OutputProd->outputProd];
+		][[1]];
+		If[info, Print["Rewriting the cofactors took in total ", t2]];
+	];
+	If[outputProd,
+		G,
+		ToNonCommutativeMultiply[G]
+	]
+]
+
+
+CheckQResolvability[sys_, Q:Quiver, oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True}]]:=
+Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
+	info = OptionValue[Info];
+	parallel = OptionValue[Parallel];
+
+	(*generate ambiguities*)
+	words = ExtractReducibleWords[sys];
+	t1 = AbsoluteTiming[
+		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],OptionValue[MaxDeg],Parallel->parallel];
+	][[1]];
+	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
+	
+	(*process ambiguities*)
+	If[OptionValue[Criterion],
+		amb = DeleteRedundant[amb,words[[All,1]],Info->info];
+	];
+	If[OptionValue[Sorted],amb = SortBy[amb,Length[#[[1]]]&]];
+	
+	(*generate S-polynomials*)
+	t2 = AbsoluteTiming[
+	spol = DeleteCases[
+		If[parallel,
+			ParallelMap[QSPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],
+			Map[QSPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb]
+		]
+	,{_,0,_}];
+	][[1]];
+	If[info,Print["Generating S-polys: ",t2 ," (",Length[spol], " in total)"]];
+	
+	(*reduce S-polynomials*)
+	rules = ExtractRules[sys];
+	(*parallelizing this makes it only slower*)
+	t3 = AbsoluteTiming[
+	spol = DeleteDuplicatesBy[DeleteCases[Map[(r = Reap[#[[2]]//.rules]; If[r[[1]]=!= 0,
+											If[Length[r[[2]]] > 0,
+												{#[[1]],r[[1]],Join[#[[3]],r[[2,1]]]},
+												{#[[1]],r[[1]],#[[3]]}
+												],
+											{}
+											])&,spol],{}],#[[2]]&];
+	][[1]];
+	If[info,Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]];
+	spol
+]
+
+
+
+
+QSPoly[amb:_Overlap|_Inclusion,fi_,fj_]:=
+Module[{A,C,ABC},
+	ABC = Prod@@amb[[1]];
+	A = Prod@@amb[[2]];
+	C = Prod@@amb[[3]];
+	If[amb[[0]]=== Overlap,
+			(*Overlap[ABC,A,C]*)
+			{ABC, Prod[fi[[2]],C] - Prod[A,fj[[2]]],
+				{{A,ToPoly[fj],Prod[]},{-Prod[],ToPoly[fi],C}}},
+			(*Inclusion[ABC,A,C)*)
+			{ABC, fi[[2]] - Prod[A,fj[[2]],C],
+			{{A,ToPoly[fj],C},{-Prod[],ToPoly[fi],Prod[]}}}
 	]
 ]
 
