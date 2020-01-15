@@ -376,23 +376,53 @@ GenerateAmbiguities[l_List,maxdeg_:Infinity,OptionsPattern[Parallel->True]] :=
 
 
 DeleteRedundant[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
-Module[{result,t,i,j,possibilities,V,A,C,W},
+Module[{result,pattern,t,i,j,V},
 	t = AbsoluteTiming[
-	i = 0;
 	result = amb;
 	Do[
 		V = Sequence@@lt[[i]];
-		possibilities = With[{idx = i},Alternatives@@{
-			_[{___,V,___},_,_,{i_,j_}] /; idx < i && idx < j,
-			Overlap[_,{___,V,___},_,_],
-			Overlap[_,_,{___,V,___},_],
-			Overlap[{_,___,V,___,_},_,_,_],
-		    Inclusion[_,{___,V,___},_,{i_,j_}]/; i < idx,
-		    Inclusion[_,_,{___,V,___},{i_,j_}]/; i < idx
-		}];
-		result = DeleteCases[result,possibilities],
+		pattern = With[{idx = i}, _[{___,V,___},_,_,{i_,j_}]/; idx < i && idx < j];
+		result = DeleteCases[result,pattern],
 		{i,Length[lt]}];
 	][[1]];
+	If[OptionValue[Info],
+		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
+	result
+]
+
+
+DeleteRedundant2[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+Module[{result,overlaps,incls,t,i,j,possibilities,V,A,C,X,Y,pre,post},
+	t = AbsoluteTiming[
+	overlaps = Cases[amb,_Overlap];
+	incls = Cases[amb,_Inclusion];
+	Do[
+		V = Sequence@@lt[[i]];
+		possibilities = Alternatives@@{
+		 (* V = ABC *)
+		  _[V,_,_,_],
+		  (* V | A *)
+		  _[_,{___,V,___},_,_],
+		  (* V |\[NonBreakingSpace]C *)
+		  _[_,_,{___,V,___},_],
+		  (* V |\[NonBreakingSpace]B *)
+		  _[{A__,___,V,___,C__},{A__},{C__},_] 
+		};
+		overlaps = DeleteCases[overlaps,possibilities];
+		possibilities = Alternatives@@With[{idx = i},{
+		(* V | A *)
+		_[_,{___,V,___},_,{_,j_}]/; idx < j,
+		(* V |\[NonBreakingSpace]C *)
+		_[_,_,{___,V,___},{_,j_}]/; idx < j,
+		(* V |\[NonBreakingSpace]B *)
+		_[{A__,___,V,___,C__},{A__},{C__},{_,j_}]/; idx < j,
+		(* B |\[NonBreakingSpace]V |\[NonBreakingSpace]ABC but V \[NotEqual] ABC *)
+		_[{X__,V,Y__},pre_,post_,{_,j_}]/; idx < j && Length[{X}] < Length[pre]\[NonBreakingSpace]&& Length[{Y}] < Length[post]
+		}];
+		incls = DeleteCases[incls,possibilities],
+		{i,Length[lt]}];
+	][[1]];
+	result = Join[overlaps,incls];
 	If[OptionValue[Info],
 		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
 	result
@@ -1278,79 +1308,6 @@ QConsequenceTest[{ai_,gi_,bi_},signaturef_,Q_]:= Module[{sigGi,sigMonomials,mi},
 	(* check if \sigma(f) \subseteq \sigma(a_i m_i b_i) *)
 	mi = Extract[MonomialList[gi],FirstPosition[sigMonomials,sigGi,1]];
 	SubsetQ[QSignature[Prod[ai,mi,bi],Q],signaturef]
-]
-
-
-(* ::Subsubsection:: *)
-(*Q-completion*)
-
-
-SetAttributes[QCompletion,HoldFirst]
-
-QCompletion[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,OutputProd->False,Rewrite->True,IterCount->0}]]:=
-Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,outputProd,criterion,i},
-	info = OptionValue[Info];
-	sorted = OptionValue[Sorted];
-	parallel = OptionValue[Parallel];
-	maxdeg = OptionValue[MaxDeg];
-	outputProd = OptionValue[OutputProd];
-	criterion = OptionValue[Criterion];
-
-	If[Head[cofactors]=!=List,cofactors={}];
-	
-	G = CreateRedSys[ideal];
-	oldlength = Length[G];
-	t1 = 0; t2 = 0; count = 0;
-	If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
-
-	spol = CheckResolvability[G,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
-	rules = ExtractRules[G];
-
-	While[Length[spol] > 0 && count < maxiter,
-		t1 = AbsoluteTiming[
-		i = Length[spol];
-		Monitor[Do[
-			(*reduce it*)
-			r = Reap[p[[1]]//.rules]; 
-			h = r[[1]];
-			If[h =!= 0,
-				If[Length[r[[2]]] > 0,
-					p[[2]]\[NonBreakingSpace]= Join[p[[2]],r[[2,1]]]
-				];
-				lt = LeadingTerm[h];
-				If[lt[[1]] =!= 1, 
-					h = Expand[1/lt[[1]]*h]; p[[2]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[2]])
-				];
-				hrule = CreateRedSys[h];
-				AppendTo[G,hrule];
-				AppendTo[cofactors,{h,p[[2]]}]; 
-				AppendTo[rules,Sequence@@ExtractRules[{hrule}]];
-			];
-			i--;
-		,{p,spol}];,i];][[1]];
-
-		If[info, Print["The second reduction took ", t1]];
-		count++;
-		If[info,Print["Iteration ",count + OptionValue[IterCount], " finished. G has now ", Length[G]," elements\n"]];
-		If[count < maxiter, 
-			spol = CheckResolvability[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
-			oldlength = Length[G];
-		];
-	];
-	
-	G = ToPoly[G];
-	
-	If[OptionValue[Rewrite],
-		If[info, Print["Rewriting the cofactors has started."]];
-		t2 = AbsoluteTiming[
-			RewriteGroebner[cofactors,Info->info,OutputProd->outputProd];
-		][[1]];
-		If[info, Print["Rewriting the cofactors took in total ", t2]];
-	];
-	If[outputProd,
-		G,
-		ToNonCommutativeMultiply[G]
-	]
 ]
 
 
