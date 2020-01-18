@@ -16,10 +16,10 @@ Clear[
 	F4,
 	ReducedForm,
 	GroebnerWithoutCofactors,ApplyRules,
-	CreateRedSys,ToPoly,Rewrite,MultiplyOut,IsLinearCombination,Interreduce,
+	CreateRedSys,ToPoly,Rewrite,MultiplyOut,LinearCombinationQ,Interreduce,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,Pinv,AddAdj,
-	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,
+	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,QConsequenceQCrit,
 	QCompletion,
 	Certify,MaxIter,MaxDeg,Info,Parallel,Sorted,Criterion
 ]
@@ -93,7 +93,7 @@ CreateRedSys::usage="Converts polynomials into the data structure needed for the
 ToPoly::usage="Converts an element of a reduction system back into a polynomial."
 Rewrite::usage="Rewrite[vars, cofactors] rewrites a linear combination, which is safed in vars, with the elements from cofactors."
 MultiplyOut::usage="To multiply out a list of cofactors given in terms of the built in non-commutative multiplication."
-IsLinearCombination::usage="Checks whether a given set of triples is a linear combination of a set of polynomials."
+LinearCombinationQ::usage="Checks whether a given set of triples is a linear combination of a set of polynomials."
 Interreduce::usage="Interreduce[ideal_] interreduces the polynomials in 'ideal'."
 
 
@@ -118,7 +118,8 @@ CompatibleQ::usage="Tests whether a polynomial is compatible with a quiver."
 UniformlyCompatibleQ::usage="Tests whether a polynomial is uniformly compatible with a quiver."
 TrivialQuiver::usage="Returns the trivial quiver containing all variables of the given input."
 QOrderCompatibleQ::usage="Tests whether a polynomial is Q-order-compatible with a quiver and the order defined by SetUpRing."
-QConsequenceQ::usage="Tests whether a certificate is a Q-consequence of a set of polynomials and a quiver."
+QConsequenceQ::usage="Tests whether a certificate is a Q-consequence of a set of polynomials and a quiver using the definition of Q-consequence."
+QConsequenceQCrit::usage="Tests whether a certificate is a Q-consequence of a set of polynomials and a quiver using a criterion."
 
 
 (*Q-completion*)
@@ -375,7 +376,7 @@ GenerateAmbiguities[l_List,maxdeg_:Infinity,OptionsPattern[Parallel->True]] :=
 (*Chain Criterion*)
 
 
-DeleteRedundant[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+ChainCriterionSimple[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
 Module[{result,pattern,t,i,j,V},
 	t = AbsoluteTiming[
 	result = amb;
@@ -391,41 +392,116 @@ Module[{result,pattern,t,i,j,V},
 ]
 
 
-DeleteRedundant2[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
-Module[{result,overlaps,incls,t,i,j,possibilities,V,A,C,X,Y,pre,post},
+DeleteRedundant[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,pre,post},
 	t = AbsoluteTiming[
 	overlaps = Cases[amb,_Overlap];
 	incls = Cases[amb,_Inclusion];
 	Do[
-		V = Sequence@@lt[[i]];
-		possibilities = Alternatives@@{
-		 (* V = ABC *)
-		  _[V,_,_,_],
-		  (* V | A *)
-		  _[_,{___,V,___},_,_],
-		  (* V |\[NonBreakingSpace]C *)
-		  _[_,_,{___,V,___},_],
-		  (* V |\[NonBreakingSpace]B *)
-		  _[{A__,___,V,___,C__},{A__},{C__},_] 
-		};
-		overlaps = DeleteCases[overlaps,possibilities];
-		possibilities = Alternatives@@With[{idx = i},{
+		V = Sequence@@lt[[k]];
+		pattern =  _[{___,V,___},_,_,{i_,j_}]/; k < i && k < j;
+		overlaps = DeleteCases[overlaps,pattern];
+		pattern = {
 		(* V | A *)
-		_[_,{___,V,___},_,{_,j_}]/; idx < j,
+		_[_,{___,V,___},_,{_,j_}]/; k < j,
 		(* V |\[NonBreakingSpace]C *)
-		_[_,_,{___,V,___},{_,j_}]/; idx < j,
+		_[_,_,{___,V,___},{_,j_}]/; k < j,
 		(* V |\[NonBreakingSpace]B *)
-		_[{A__,___,V,___,C__},{A__},{C__},{_,j_}]/; idx < j,
+		_[{A__,___,V,___,C__},{A__},{C__},{_,j_}]/; k < j,
 		(* B |\[NonBreakingSpace]V |\[NonBreakingSpace]ABC but V \[NotEqual] ABC *)
-		_[{X__,V,Y__},pre_,post_,{_,j_}]/; idx < j && Length[{X}] < Length[pre]\[NonBreakingSpace]&& Length[{Y}] < Length[post]
-		}];
-		incls = DeleteCases[incls,possibilities],
-		{i,Length[lt]}];
+		_[{X__,V,Y__},pre_,post_,{_,j_}]/; k < j && Length[{X}] < Length[pre]\[NonBreakingSpace]&& Length[{Y}] < Length[post]
+		};
+		incls = DeleteCases[incls,pattern],
+		{k,Length[lt]}];
 	][[1]];
 	result = Join[overlaps,incls];
 	If[OptionValue[Info],
 		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
 	result
+]
+
+
+(* ::Text:: *)
+(*Gebauer-M\[ODoubleDot]ller criterion*)
+
+
+GebauerMoeller[ambInput_List,lt_List,OptionsPattern[{Info->False}]]:= 
+Module[{amb,result,t,A,C,i,s,pattern,a,j,APrime,CPrime,pos,selected,idx},
+	t = AbsoluteTiming[
+	amb = SortBy[ambInput,Length[#[[1]]]&];
+
+	If[Length[amb] === 0,
+		result = {},
+		idx = Flatten[amb[[All,4]]];
+		result = Reap[
+			Do[
+			selected = Select[amb,Max[#[[4]]] === s&];
+			While[Length[selected]\[NonBreakingSpace]> 0,
+				a = First[selected];
+				selected = Delete[selected,{1}];
+				Sow[a];
+			
+				APrime = Sequence@@a[[2]]; CPrime = Sequence@@a[[3]];
+				j = Min[a[[4]]];
+				Switch[a,
+				Overlap[_,_,_,{s,_}],
+					pattern = Alternatives@@{
+						Overlap[_,_,{CPrime,___},{s,i_}]/; i > j,
+						Overlap[_,_,{CPrime,__},{s,i_}]/; i <= j,
+						Overlap[_,A_,{CPrime},{s,i_}]/; i === j && Length[A] > Length[{APrime}],
+						Inclusion[_,{},{CPrime,___},{i_,s}]/; i > j,
+						Inclusion[_,{},{CPrime,__},{i_,s}]/; i <= j
+			    },
+				Overlap[_,_,_,{_,s}], 
+			    pattern = Alternatives@@{
+						Overlap[_,{___,APrime},_,{i_,s}]/; i > j,
+						Overlap[_,{__,APrime},_,{i_,s}]/; i <= j,
+						Inclusion[_,{___,APrime},{},{i_,s}]/; i > j,
+						Inclusion[_,{__,APrime},{},{i_,s}]/; i <= j
+			    },
+				Inclusion[_,_,_,{s,_}], 
+					pattern = Alternatives@@{
+						Overlap[_,_,_,{i_,s}]/; i > j,
+						Overlap[_,_,{__},{i_,s}]/; i <= j,
+						Overlap[_,_,_,{s,_}],
+						Inclusion[_,_,_,{i_,s}]/; i > j,
+						Inclusion[_,A_,C_,{i_,s}]/; i <= j && Length[A] + Length[C]\[NonBreakingSpace]> 0,
+						Inclusion[_,_,_,{s,i_}]/; i > j,
+						Inclusion[_,_,_,{s,i_}]/; i === j && Length[A] > Length[{APrime}]
+				},
+				_,
+					pattern = Alternatives@@DeleteCases[{
+						If[Length[{CPrime}] > 0,
+							Sequence@@{
+								Overlap[_,{___,APrime},_,{i_,s}]/; i > j,
+								Overlap[_,{__,APrime},_,{i_,s}]/; i <= j
+							},
+							{}],
+						If[Length[{APrime}] > 0,
+							Sequence@@{
+								Overlap[_,_,{CPrime,___},{i_,s}]/; i >= j,
+								Overlap[_,_,{CPrime,__},{i_,s}]/; i < j
+							},
+							{}],
+						Inclusion[_,{___,APrime},{CPrime,___},{i_,s}]/; i > j,
+						Inclusion[_,{__,APrime},{CPrime,__},{i_,s}]/; i <= j,
+						If[Length[{APrime}] > 0 && Length[{CPrime}] > 0,
+							Sequence@@{
+								Inclusion[_,_,_,{s,i_}]/; i > j,
+								Inclusion[_,{__},_,{s,i_}]/; i <= j
+							},
+							{}]	
+					},{}];
+				];
+				selected = DeleteCases[selected,pattern];
+			],
+			{s,Min[idx],Max[idx]}];
+			][[2,1]];
+	]
+	][[1]];
+	If[OptionValue[Info],
+		Print["Removed ", Length[ambInput] - Length[result], " ambiguities in ",t]];
+	Join[Cases[result,_Overlap],Cases[result,_Inclusion]]
 ]
 
 
@@ -779,7 +855,7 @@ Module[{F,M,lt,columns,FPlus,a,c,t1,t2,t3,t4,cofactorsF,A,cofactors,pos,f,rule},
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*Additional stuff*)
 
 
@@ -1049,7 +1125,7 @@ Module[{a,b,i,j,rules,occurring,result,spolfactors,cofactors},
 MultiplyOut[cofactors_List]:=Expand[ToNonCommutativeMultiply[Total[Map[ToProd,cofactors]]]]
 
 
-IsLinearCombination[triples_List, G_List] := AllTrue[triples[[All,2]],MemberQ[G,#]&]
+LinearCombinationQ[triples_List, G_List] := AllTrue[triples[[All,2]],MemberQ[G,#]&]
 
 
 SetAttributes[MakeMonic,HoldFirst];
@@ -1281,9 +1357,49 @@ QOrderCompatibleQ[p_,Q_]:= Module[{lm},
 ]
 
 
-QConsequenceQ[certificate_,F_,Q_]:= Module[{f,signaturef},
+QConsequenceQ[certificate_,G_,Q_]:=
+Module[{f,signaturef,signaturesCertificate,resultsPathCheck,result},
+	result = Catch[
 	(* check if certificate is indeed a liner combination of elements in F *)
-	If[!IsLinearCombination[certificate,F],
+		If[!LinearCombinationQ[certificate,G],
+			Print["The input is not a linear combination of elements of the given set."];
+			Throw[False]
+		];  
+
+		f = MultiplyOut[certificate];
+		signaturef = QSignature[f,Q];
+	
+		(* f has to be compatible *)
+		If[signaturef === {}, Throw[False]];
+	
+		(* Q-consequence test has to pass for (u,v)\in\sigma(f) and every a_i f_i b_i *)
+		signaturesCertificate = Map[QSignature[#,Q]&,certificate,{2}];
+
+		(* go through all (u,v)\in\sigma(f) *)
+		Do[
+			(* given (u,v)\in\sigma(f) check for all a_i f_i b_i *)
+			resultsPathCheck = Map[PathCheck[pair,#]&,signaturesCertificate];
+			If[MemberQ[resultsPathCheck,False],
+				Throw[False]
+			];
+		,{pair,signaturef}];
+		Throw[True];
+	];
+	result
+]
+
+
+PathCheck[{u_,v_},{siga_,sigg_,sigb_}]:=
+Module[{starts,ends,ui,vi},
+	starts = Cases[sigb,{u,ui_}->ui];
+	ends = Cases[siga,{vi_,v}->vi];
+	MemberQ[sigg,{Alternatives@@starts,Alternatives@@ends}]
+]
+
+
+QConsequenceQCrit[certificate_,G_,Q_]:= Module[{f,signaturef},
+	(* check if certificate is indeed a liner combination of elements in F *)
+	If[!LinearCombinationQ[certificate,G],
 		Print["The input is not a linear combination of elements of the given set."];
 		Return[False]
 	];  
@@ -1294,12 +1410,12 @@ QConsequenceQ[certificate_,F_,Q_]:= Module[{f,signaturef},
 	(* f has to be compatible *)
 	If[signaturef === {}, Return[False]];
 	
-	(* Q-consequence test has to pass for each summand in the certificate *)
-	!MemberQ[Map[QConsequenceTest[#,signaturef,Q]&,certificate],False]
+	(* Q-consequence criterion has to pass for each summand in the certificate *)
+	!MemberQ[Map[QConsequenceCriterion[#,signaturef,Q]&,certificate],False]
 ]
 
 
-QConsequenceTest[{ai_,gi_,bi_},signaturef_,Q_]:= Module[{sigGi,sigMonomials,mi},
+QConsequenceCriterion[{ai_,gi_,bi_},signaturef_,Q_]:= Module[{sigGi,sigMonomials,mi},
 	(* check if there is m_i \in \supp(g_i) s.t. \sigma(m_i) = \sigma(g_i) *)
 	sigGi = QSignature[gi,Q];
 	sigMonomials = QSignature[MonomialList[gi],Q];
