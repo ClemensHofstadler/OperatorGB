@@ -194,13 +194,16 @@ SetUpRing[S1_List,SRest:_List..,OptionsPattern[{Info->True}]]:= Module[{string},
 (*LeadingTerm[poly_] returns the leading term of poly (with regard to the term order set by the user). The return value is a triple {lc, lm, w}, where lc is the leading coefficient, lm is the leading monomial and w is the word corresponding to the leading monomial. *)
 
 
-LeadingTerm[poly_Prod]:=
+LeadingTerm[poly_] := LeadingTermIntern[ToProd[poly]]
+
+
+LeadingTermIntern[poly_Prod]:=
 	List[1,List@@poly]
 
 
-LeadingTerm[poly_]:=
+LeadingTermIntern[poly_]:= 
 	If[Head[Expand[poly]] === Times,
-		List[First[poly],List@@Last[poly]],
+		{First[poly],List@@Last[poly]},
 		FindMaxTerm[Expand[poly]]
 	]
 
@@ -346,7 +349,7 @@ GenerateInclusions[l1_List,l2_List,OptionsPattern[Parallel->True]]:=
 
 Inclusion[{v_List,i_Integer},{w_List,j_Integer}]:=
 Module[{k},
-	Reap[If[Length[w]<Length[v],
+	Reap[If[Length[w] < Length[v],
 		For[k=1,k+Length[w]-1<=Length[v],k++,
 			If[v[[k;;(k+Length[w]-1)]]===w,
 				Sow[Inclusion[v,v[[1;;(k-1)]],v[[(k+Length[w]);;]],{i,j}]]
@@ -593,7 +596,7 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 				If[Length[r[[2]]] > 0,
 					p[[2]]\[NonBreakingSpace]= Join[p[[2]],r[[2,1]]]
 				];
-				lt = LeadingTerm[h];
+				lt = LeadingTermIntern[h];
 				If[lt[[1]] =!= 1, 
 					h = Expand[1/lt[[1]]*h]; p[[2]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[2]])
 				];
@@ -603,7 +606,7 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 				AppendTo[rules,Sequence@@ExtractRules[{hrule}]];
 			];
 			i--;
-		,{p,spol}];,i];][[1]];
+		,{p,Sort[spol]}];,i];][[1]];
 
 		If[info, Print["The second reduction took ", t1]];
 		count++;
@@ -795,7 +798,7 @@ Module[{count,spol,lt,info,G,t1,t2,sorted,oldlength,parallel,maxdeg,n,L,cofactor
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*Symbolic Preprocessing & Reduction*)
 
 
@@ -805,7 +808,7 @@ SymbolicPreprocessing[{cofactorsF_,columns_},L_,G_]:=
 Module[{F,T,lt,g,rules,a,b,newTerms},
 	F = L;
 	T = Complement[DeleteDuplicates[Flatten[Monomials/@F,1]],columns];
-	lt = (LeadingTerm/@G)[[All,2]];
+	lt = (LeadingTermIntern/@G)[[All,2]];
 	rules = Table[With[{x = i},{a___,Sequence@@lt[[i]],b___}:>(AppendTo[cofactorsF,{Prod[a],G[[x]],Prod[b]}];Prod[a,G[[x]],b])],{i,Length[G]}];
 	While[Length[T] > 0,
 		columns = Join[columns,T];
@@ -825,12 +828,12 @@ Reduction[L_,G_]:=
 Module[{F,M,lt,columns,FPlus,a,c,t1,t2,t3,t4,cofactorsF,A,cofactors,pos,f,rule},
 	t1 = AbsoluteTiming[
 	cofactorsF = L[[All,2]];
-	columns = DeleteDuplicates[(LeadingTerm/@L[[All,1]])[[All,2]]];
+	columns = DeleteDuplicates[(LeadingTermIntern/@L[[All,1]])[[All,2]]];
 	F = SymbolicPreprocessing[{cofactorsF,columns},L[[All,1]],G];
 	][[1]];
 	
 	t2 = AbsoluteTiming[
-		lt = (LeadingTerm/@F)[[All,2]];
+		lt = (LeadingTermIntern/@F)[[All,2]];
 		(*sort in descending order*)
 		columns = Reverse[Sort[columns,SortedQ]];
 		M = SparseArray[Flatten[MapIndexed[#1/.{Plus->List,c_*Prod[a___]->({#2[[1]],{a}}->c),Prod[a___]->({#2[[1]],{a}}->1)}&,F]/.MapIndexed[#1->#2[[1]]&,columns]]];
@@ -848,7 +851,7 @@ Module[{F,M,lt,columns,FPlus,a,c,t1,t2,t3,t4,cofactorsF,A,cofactors,pos,f,rule},
 			AppendTo[cofactors[[rule[[1,1]]]],{rule[[2]]*f[[1]],f[[2]],f[[3]]}];
 			,{rule,ArrayRules[A][[;;-2]]}
 		];
-		pos = Position[FPlus,p_/;!MemberQ[lt,LeadingTerm[p][[2]]],{1},Heads->False]; 
+		pos = Position[FPlus,p_/;!MemberQ[lt,LeadingTermIntern[p][[2]]],{1},Heads->False]; 
 	][[1]];
 	Print["SymPre: ", t1,", Setup: ", t2, ", RRed: ", t3, ", Cofactor stuff: ", t4];
 	{Extract[FPlus,pos],Extract[cofactors,pos]}
@@ -890,7 +893,7 @@ Module[{amb,spol,info,t1,t2,lt,sorted,maxdeg,parallel,words},
 	maxdeg = OptionValue[MaxDeg];
 
 	(*generate ambiguities*)
-	words = MapIndexed[{LeadingTerm[#1][[2]],First[#2]}&,G];
+	words = MapIndexed[{LeadingTermIntern[#1][[2]],First[#2]}&,G];
 	t1 = AbsoluteTiming[
 		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],maxdeg,Parallel->parallel];
 	][[1]];
@@ -992,7 +995,7 @@ Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sor
 		t = AbsoluteTiming[Monitor[Do[
 			h = p//.rules;
 			If[h =!= 0,  
-				lt = LeadingTerm[h];
+				lt = LeadingTermIntern[h];
 				If[lt[[1]] =!= 1, h = Expand[1/lt[[1]]*h]];
 				AppendTo[G,CreateRedSys[h]];
 				AppendTo[rules,Sequence@@ExtractRules2[{G[[-1]]}]]
@@ -1067,7 +1070,7 @@ ApplyRules[expr_,G_]:=
 
 
 NormalizePoly[poly_]:= 
-	Expand[1/LeadingTerm[poly][[1]]*poly]
+	Expand[1/LeadingTermIntern[poly][[1]]*poly]
 
 
 Remainder[poly_, lt:{_,_List}]:=
@@ -1084,7 +1087,7 @@ Module[{lt,poly},
 	If[poly===0,
 		Return[{}]
 	];
-	lt = LeadingTerm[poly];
+	lt = LeadingTermIntern[poly];
 	{lt[[2]], Expand[-1/lt[[1]]*Remainder[poly,lt]]}
 ]
 
@@ -1132,7 +1135,7 @@ SetAttributes[MakeMonic,HoldFirst];
 
 MakeMonic[ideal_]:=
 Module[{lc},
-	lc = (LeadingTerm/@ideal)[[All,1]];
+	lc = (LeadingTermIntern/@ideal)[[All,1]];
 	ideal = Expand[ideal/lc];
 	lc
 ]
@@ -1166,7 +1169,7 @@ Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart},
 			cofactors[[i]] = Null;
 			i++,
 			If[gi =!= G[[i]],
-				lt = LeadingTerm[gi];
+				lt = LeadingTermIntern[gi];
 				r = r[[2,1]];
 				newPart = Flatten[Table[Map[{Prod[r[[i,1]],#[[1]]],#[[2]],Prod[#[[3]],r[[i,3]]]}&,cofactors[[r[[i,2]]]]],{i,Length[r]}],1];
 				cofactors[[i]] = Join[cofactors[[i]],newPart];
@@ -1342,7 +1345,17 @@ Module[{monomials,signatures},
 
 
 PlotQuiver[Q:Quiver]:=
-	GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->.2]
+Module[{edgeFun,occured},
+	occured = Association@@Map[#[[2;;3]] -> 0 &,Q];
+	edgeFun[pts_,e_] := Module[{edge,pos},
+		edge = List@@e;
+		pos = Position[Q[[All,2;;]],edge,1,++occured[edge]][[-1,1]];
+		{Text[Q[[pos,1]],Mean@pts],Arrowheads[0.03],Arrow@pts}
+	];
+	GraphPlot[
+	Map[#[[2]]->#[[3]]&,Q],
+		EdgeShapeFunction->edgeFun,DirectedEdges->True,SelfLoopStyle->0.2]
+]
 
 
 TrivialQuiver[F_]:= Module[{vars,v},
@@ -1464,7 +1477,7 @@ Module[{count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,m
 				If[Length[r[[2]]] > 0,
 					p[[3]]\[NonBreakingSpace]= Join[p[[3]],r[[2,1]]]
 				];
-				lt = LeadingTerm[h];
+				lt = LeadingTermIntern[h];
 				If[lt[[1]] =!= 1, 
 					h = Expand[1/lt[[1]]*h]; p[[3]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[3]])
 				];
@@ -1707,7 +1720,7 @@ RewriteCertify[varsInput_,cofactors_]:= Module[
 (*End*)
 
 
-Copyright[a_String,b___String]:=Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
+Copyright[a_String,b___String]:= Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 
 Copyright[
@@ -1720,6 +1733,3 @@ End[]
 
 
 EndPackage[]
-
-
-?OperatorGB
