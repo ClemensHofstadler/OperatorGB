@@ -11,9 +11,8 @@ Version 1.2 includes (for both versions of the package):
   * Computing the signature of polynomials with respect to a quiver 
   * Checking compatibility as well uniform compatibliity of polynomials with a quiver
   * A 'Certify' command that does everything from checking compatibility, to computing a Groebner basis as well as a cofactor representation all fully automatically.
-  ----------
-  * Q-completion procedure (so far only in Mathematica)
-
+  * Q-completion procedure (so far only in Mathematica) (new in this version)
+-----------
 TODO:
 
 Mathematica:
