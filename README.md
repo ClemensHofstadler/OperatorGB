@@ -14,6 +14,7 @@ Version 1.2 includes (for both versions of the package):
   * Q-completion procedure (so far only in Mathematica) (new in this version)
 -----------
 TODO:
+
 Both:
  * Option to compute reduced GB 
 
