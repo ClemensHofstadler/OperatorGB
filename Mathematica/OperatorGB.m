@@ -289,7 +289,7 @@ Module[{i},
 SortedQ := DegLex;
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Ambiguities*)
 
 
@@ -1363,7 +1363,7 @@ QConsequenceCriterion[{ai_,gi_,bi_},signaturef_,Q_]:= Module[{sigGi,sigMonomials
 
 SetAttributes[QCompletion,HoldFirst]
 
-QCompletion[cofactors_,ideal_,Q_:Quiver,maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,IterCount->0}]]:=
+QCompletion[cofactors_,ideal_,Q:Quiver,maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,IterCount->0}]]:=
 Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,intern,criterion,i},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -1397,7 +1397,7 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 			(* here we have to check also that h is \leq_Q-compatible and that \sigma(h) \subseteq \sigma(\source(a))*)
 			If[h =!= 0 && QOrderCompatibleQ[h,Q] && SubsetQ[QSignature[p[[1]],Q],QSignature[h,Q]],
 				If[Length[r[[2]]] > 0,
-					p[[3]]\[NonBreakingSpace]= Join[p[[3]],r[[2,1]]]
+					p[[3]] = Join[p[[3]],r[[2,1]]]
 				];
 				lt = LeadingTermIntern[h];
 				If[lt[[1]] =!= 1, 
