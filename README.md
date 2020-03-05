@@ -17,6 +17,7 @@ TODO:
 
 Both:
  * Option to compute reduced GB 
+ * Test file
 
 Mathematica:
   * Info: version that prints only some information
