@@ -12,7 +12,7 @@ Clear[
 	WordOrder,varSets,
 	LeadingTerm,DegLex,WeightedDegLex,MultiLex,Weight,SortedQ,
 	ExtractReducibleWords,GenerateAmbiguities,Overlap,Inclusion,DeleteRedundant,
-	Groebner,
+	Groebner,CheckResolvability,
 	F4,
 	ReducedForm,
 	GroebnerWithoutCofactors,ApplyRules,
@@ -69,6 +69,7 @@ DeleteRedundant::usage="Chain criterion to remove redundant ambiguities."
 Groebner::usage="Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]False,Parallel->True,Sorted->True}]] executes at most maxiter iterations of the Buchberger algorithm to compute
 a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list of cofactors is saved in the list cofactors forming a linear combination of the new element. For further information concerning the OptionPatterns
 please see the documentation or the source code."
+CheckResolvability::usage=""
 
 
 (*F4)*)
@@ -288,7 +289,7 @@ Module[{i},
 SortedQ := DegLex;
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Ambiguities*)
 
 
@@ -379,15 +380,16 @@ GenerateAmbiguities[l_List,maxdeg_:Infinity,OptionsPattern[Parallel->True]] :=
 (*Chain Criterion*)
 
 
-ChainCriterionSimple[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
-Module[{result,pattern,t,i,j,V},
+DeleteRedundantSimple[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+Module[{result,pattern,t,i,j,k,V,l},
 	t = AbsoluteTiming[
 	result = amb;
 	Do[
-		V = Sequence@@lt[[i]];
-		pattern = With[{idx = i}, _[{___,V,___},_,_,{i_,j_}]/; idx < i && idx < j];
-		result = DeleteCases[result,pattern],
-		{i,Length[lt]}];
+		V = Sequence@@l[[1]];
+		k = l[[2]];
+		pattern = With[{idx = k}, _[{___,V,___},_,_,{i_,j_}]/; idx < i && idx < j];
+		result = DeleteCases[result,pattern]
+	,{l,lt}];
 	][[1]];
 	If[OptionValue[Info],
 		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
@@ -395,27 +397,76 @@ Module[{result,pattern,t,i,j,V},
 ]
 
 
+DeleteRedundantComplex[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,pre,post,l,ltsort,k,L,R},
+	t = AbsoluteTiming[
+	overlaps = Cases[amb,_Overlap];
+	incls = Cases[amb,_Inclusion];
+	ltsort = SortBy[lt,Length[#[[1]]]&];
+	Do[
+		V = Sequence@@l[[1]];
+		k = l[[2]];
+		pattern =  Alternatives@@{
+		(* V | A *)
+		_[_,{___,V,___},_,_],
+		(* V | C *)
+		_[_,_,{___,V,___},_],
+		(* ABC = LVR and |L| = 0 and |R| < |C| *)
+		_[{V,R___},_,C_,_]/; Length[{R}] < Length[C],
+		(* ABC = LVR and 0 < |L| < |A| *)
+		_[{L__,V,___},A_,_,_]/; Length[{L}] < Length[A],
+		(* ABC = LVR and |L| \[GreaterEqual] |A| and |R| > 0 *)
+		_[{L__,V,__},A_,_,_]/; Length[{L}] >= Length[A],
+		(* V |\[NonBreakingSpace]B *)
+		_[{L__,V,R__},A_,C_,_]/;Length[{L}] >= Length[A] && Length[{R}] >= Length[C]
+		};
+		overlaps = DeleteCases[overlaps,pattern];
+	,{l,DeleteDuplicates[ltsort,Length[SequencePosition[#1[[1]],#2[[1]]]] > 0&]}];
+	Do[
+		V = Sequence@@l[[1]];
+		k = l[[2]];
+		pattern = {
+		(* V | A *)
+		_[_,{___,V,___},_,{_,j_}]/; k < j,
+		(* V | C *)
+		_[_,_,{___,V,___},{_,j_}]/; k < j,
+		(* V | B and |AC| > 0 *)
+		_[{L__,V,R__},A_,C_,{_,j_}]/; k < j && Length[{L}] >= Length[A] && Length[{R}] >= Length[C] && Length[A] + Length[C] > 0,
+		(* B | V and |V| < |ABC| *)
+		_[{L__,V,R__},A_,C_,{_,j_}]/; k < j && Length[{L}] < Length[A] && Length[{R}] < Length[C]
+		};
+		incls = DeleteCases[incls,pattern],
+	{l,ltsort}];
+	][[1]];
+	result = Join[overlaps,incls];
+	If[OptionValue[Info],
+		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
+	result
+]
+
+
 DeleteRedundant[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
-Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,pre,post},
+Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,l,k},
 	t = AbsoluteTiming[
 	overlaps = Cases[amb,_Overlap];
 	incls = Cases[amb,_Inclusion];
 	Do[
-		V = Sequence@@lt[[k]];
+		V = Sequence@@l[[1]];
+		k = l[[2]];
 		pattern =  _[{___,V,___},_,_,{i_,j_}]/; k < i && k < j;
 		overlaps = DeleteCases[overlaps,pattern];
-		pattern = {
+		pattern = Alternatives@@{
 		(* V | A *)
 		_[_,{___,V,___},_,{_,j_}]/; k < j,
-		(* V |\[NonBreakingSpace]C *)
+		(* V | C *)
 		_[_,_,{___,V,___},{_,j_}]/; k < j,
-		(* V |\[NonBreakingSpace]B *)
-		_[{A__,___,V,___,C__},{A__},{C__},{_,j_}]/; k < j,
-		(* B |\[NonBreakingSpace]V |\[NonBreakingSpace]ABC but V \[NotEqual] ABC *)
-		_[{X__,V,Y__},pre_,post_,{_,j_}]/; k < j && Length[{X}] < Length[pre]\[NonBreakingSpace]&& Length[{Y}] < Length[post]
+		(* V | B and |AC| > 0 *)
+		_[{X__,V,Y__},A_,C_,{_,j_}]/; k < j && Length[{X}] >= Length[A] && Length[{Y}] >= Length[C] && Length[A] + Length[C]\[NonBreakingSpace]> 0,
+		(* B | V | ABC and V \[NotEqual] ABC *)
+		_[{X__,V,Y__},A_,C_,{_,j_}]/; k < j && Length[{X}] < Length[A]\[NonBreakingSpace]&& Length[{Y}] < Length[C]
 		};
 		incls = DeleteCases[incls,pattern],
-		{k,Length[lt]}];
+		{l,lt}];
 	][[1]];
 	result = Join[overlaps,incls];
 	If[OptionValue[Info],
@@ -609,7 +660,7 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 				AppendTo[rules,ExtractRule[hrule,Length[G]]];
 			];
 			i--;
-		,{p,Sort[spol]}];,i];][[1]];
+		,{p,spol}];,i];][[1]];
 		
 		count++;
 		If[info, 
@@ -651,9 +702,11 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	
 	(*process ambiguities*)
 	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb,words[[All,1]],Info->info];
+		amb = DeleteRedundant[amb,words,Info->info];
 	];
-	If[OptionValue[Sorted],amb = SortBy[amb,Length[#[[1]]]&]];
+	If[OptionValue[Sorted],
+		amb = SortBy[amb,Length[#[[1]]]&];
+	];
 	
 	(*generate S-polynomials*)
 	t2 = AbsoluteTiming[
@@ -679,7 +732,13 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 											])&,spol],{}],#[[1]]&];
 	][[1]];
 	If[info,Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]];
-	spol
+	If[OptionValue[Sorted],
+		If[$VersionNumber < 12,
+			Sort[spol,SortedQ[LeadingTermIntern[#1[[1]]][[2]],LeadingTermIntern[#2[[1]]][[2]]]&],
+			SortBy[spol,LeadingTermIntern[#[[1]]][[2]]&,SortedQ]
+		],
+		spol
+	]
 ]
 
 
@@ -719,6 +778,9 @@ Module[{t,info,N,NC,i,j,k,a,f,b,l,r},
 	N = Length[F];
 	NC = Length[cofactors];
 	cofactors[[;;N,1,2]] = F;
+	
+	cofactors = DeleteCases[CollectLeft /@ cofactors,{0,_,_},2];
+	
 	Monitor[
 	Do[
 		cofactors[[j]]\[NonBreakingSpace]= Flatten[Reap[
@@ -812,7 +874,7 @@ Module[{i,t,rules},
 (*	*)
 
 
-GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{Ignore->0, MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,Criterion->True}]]:=
+GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,Criterion->True}]]:=
 Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sorted,parallel,syslength,i},
 
 	info = OptionValue[Info];
@@ -826,7 +888,7 @@ Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sor
 	If[info,Print["G has ", Length[G]," elements in the beginning."];Print[]];
 	count = 0; t = 0;
 
-	spol = CheckResolvability2[G,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+	spol = CheckResolvability2[G,0,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
 	rules = ExtractRules2[G];
 
 	While[Length[spol] > 0 && count < maxiter,
@@ -871,7 +933,9 @@ Module[{amb,spol,info,t1,t2,lists,rules,words,parallel},
 	If[OptionValue[Criterion],
 		amb = DeleteRedundant[amb,words[[All,1]],Info->info]
 	];
-	If[OptionValue[Sorted],amb = SortBy[amb,Length[#[[1]]]&]];
+	If[OptionValue[Sorted],
+		amb = SortBy[amb,Length[#[[1]]]&];
+	];
 	
 	(*generate and reduce S-polynomials*)
 	t2 = AbsoluteTiming[
@@ -881,7 +945,13 @@ Module[{amb,spol,info,t1,t2,lists,rules,words,parallel},
 	][[1]];
 
 	If[info, Print[Length[spol]," different S-polynomials did not reduce to 0 (computation took ",t2,")"]];
-	spol
+	If[OptionValue[Sorted],
+		If[$VersionNumber < 12,
+			Sort[spol,SortedQ[LeadingTermIntern[#1][[2]],LeadingTermIntern[#2][[2]]]&],
+			SortBy[spol,LeadingTermIntern[#][[2]]&,SortedQ]
+		],
+		spol
+	]
 ]
 
 
@@ -1185,7 +1255,13 @@ Module[{monomials,signatures},
 ]
 
 
-PlotQuiver[Q:Quiver]:=
+PlotQuiver[Q:Quiver]:= If[$VersionNumber < 12, PlotQuiverOld[Q], PlotQuiverNew[Q]]
+
+
+PlotQuiverOld[Q_]:= GraphPlot[Map[{#[[2]]->#[[3]],#[[1]]}&,Q],DirectedEdges->True,SelfLoopStyle->0.2]
+
+
+PlotQuiverNew[Q_]:=
 Module[{edgeFun,occured},
 	occured = Association@@Map[#[[2;;3]] -> 0 &,Q];
 	edgeFun[pts_,e_] := Module[{edge,pos},
@@ -1287,7 +1363,7 @@ QConsequenceCriterion[{ai_,gi_,bi_},signaturef_,Q_]:= Module[{sigGi,sigMonomials
 
 SetAttributes[QCompletion,HoldFirst]
 
-QCompletion[cofactors_,ideal_,Q:Quiver,maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,IterCount->0}]]:=
+QCompletion[cofactors_,ideal_,Q_:Quiver,maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,IterCount->0}]]:=
 Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,intern,criterion,i},
 	info = OptionValue[Info];
 	sorted = OptionValue[Sorted];
@@ -1308,7 +1384,7 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 	t1 = 0; t2 = 0; count = 0;
 	If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
 
-	spol = CheckResolvability[G,Q,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+	spol = CheckQResolvability[G,Q,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
 	rules = ExtractRules[G];
 
 	While[Length[spol] > 0 && count < maxiter,
@@ -1316,24 +1392,24 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 		i = Length[spol];
 		Monitor[Do[
 			(*reduce it*)
-			r = Reap[p[[1]]//.rules]; 
+			r = Reap[p[[2]]//.rules]; 
 			h = r[[1]];
 			(* here we have to check also that h is \leq_Q-compatible and that \sigma(h) \subseteq \sigma(\source(a))*)
 			If[h =!= 0 && QOrderCompatibleQ[h,Q] && SubsetQ[QSignature[p[[1]],Q],QSignature[h,Q]],
 				If[Length[r[[2]]] > 0,
-					p[[2]]\[NonBreakingSpace]= Join[p[[2]],r[[2,1]]]
+					p[[3]]\[NonBreakingSpace]= Join[p[[3]],r[[2,1]]]
 				];
 				lt = LeadingTermIntern[h];
 				If[lt[[1]] =!= 1, 
-					h = Expand[1/lt[[1]]*h]; p[[2]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[2]])
+					h = Expand[1/lt[[1]]*h]; p[[3]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[3]])
 				];
 				hrule = CreateRedSys[h];
 				AppendTo[G,hrule];
-				AppendTo[cofactors,p[[2]]]; 
+				AppendTo[cofactors,p[[3]]]; 
 				AppendTo[rules,ExtractRule[hrule,Length[G]]];
 			];
 			i--;
-		,{p,Sort[spol]}];,i];][[1]];
+		,{p,spol}];,i];][[1]];
 		
 		count++;
 		If[info, 
@@ -1341,7 +1417,7 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 			Print["Iteration ",count + OptionValue[IterCount], " finished. G has now ", Length[G]," elements\n"]
 		];
 		If[count < maxiter, 
-			spol = CheckResolvability[G,Q,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
+			spol = CheckQResolvability[G,Q,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
 			oldlength = Length[G];
 		];
 	];
@@ -1352,6 +1428,80 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 		G,
 		RewriteGroebner[cofactors,ideal,Info->info];
 		ToNonCommutativeMultiply[G]
+	]
+]
+
+
+CheckQResolvability[sys_, Q:Quiver, oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True}]]:=
+Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
+	info = OptionValue[Info];
+	parallel = OptionValue[Parallel];
+
+	(*generate ambiguities*)
+	words = ExtractReducibleWords[sys];
+	t1 = AbsoluteTiming[
+		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],OptionValue[MaxDeg],Parallel->parallel];
+	][[1]];
+	
+	(* remove ambiguities whose source is not compatible *)
+	amb = Select[amb,CompatibleQ[Prod@@#[[1]],Q]&];
+	
+	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
+	
+	(*process ambiguities*)
+	If[OptionValue[Criterion],
+		amb = DeleteRedundant[amb,words,Info->info];
+	];
+	If[OptionValue[Sorted],
+		amb = SortBy[amb,Length[#[[1]]]&];
+	];
+	
+	(*generate S-polynomials*)
+	t2 = AbsoluteTiming[
+	spol = DeleteCases[
+		If[parallel,
+			ParallelMap[QSPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],
+			Map[QSPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb]
+		]
+	,{_,0,_}];
+	][[1]];
+	If[info,Print["Generating S-polys: ",t2 ," (",Length[spol], " in total)"]];
+	
+	(*reduce S-polynomials*)
+	rules = ExtractRules[sys];
+	(*parallelizing this makes it only slower*)
+	t3 = AbsoluteTiming[
+	spol = DeleteDuplicatesBy[DeleteCases[Map[(r = Reap[#[[2]]//.rules]; If[r[[1]]=!= 0,
+											If[Length[r[[2]]] > 0,
+												{#[[1]],r[[1]],Join[#[[3]],r[[2,1]]]},
+												{#[[1]],r[[1]],#[[3]]}
+												],
+											{}
+											])&,spol],{}],#[[2]]&];
+	][[1]];
+	If[info,Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]];
+	If[OptionValue[Sorted],
+		If[$VersionNumber < 12,
+			Sort[spol,SortedQ[LeadingTermIntern[#1[[2]]][[2]],LeadingTermIntern[#2[[2]]][[2]]]&],
+			SortBy[spol,LeadingTermIntern[#[[2]]][[2]]&,SortedQ]
+		],
+		spol
+	]
+]
+
+
+QSPoly[amb:_Overlap|_Inclusion,fi_,fj_]:=
+Module[{A,C,ABC},
+	ABC = Prod@@amb[[1]];
+	A = Prod@@amb[[2]];
+	C = Prod@@amb[[3]];
+	If[amb[[0]]=== Overlap,
+			(*Overlap[ABC,A,C]*)
+			{ABC, Prod[fi[[2]],C] - Prod[A,fj[[2]]],
+				{{A,amb[[4,2]],Prod[]},{-Prod[],amb[[4,1]],C}}},
+			(*Inclusion[ABC,A,C)*)
+			{ABC, fi[[2]] - Prod[A,fj[[2]],C],
+			{{A,amb[[4,2]],C},{-Prod[],amb[[4,1]],Prod[]}}}
 	]
 ]
 
@@ -1484,7 +1634,7 @@ Copyright[a_String,b___String]:= Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 Copyright[
     "Package OperatorGB version 1.2.0",
-    "Copyright 2020, Institute for Algebra, JKU",
+    "Copyright 2019, Institute for Algebra, JKU",
     "by Clemens Hofstadler, clemens.hofstadler@jku.at"];
 
 
