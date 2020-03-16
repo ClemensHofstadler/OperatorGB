@@ -1604,14 +1604,15 @@ SetAttributes[RewriteCertify,HoldAll];
 
 RewriteCertify[certificate_,cofactors_,F_,N_]:= 
 Module[{a,b,i,j,l,r,f,occurring,done},
-	occurring = certificate[[All,All,2]]//Flatten//DeleteDuplicates;
+	occurring = Select[certificate[[All,All,2]]//Flatten//DeleteDuplicates, # > N&];
 	done = {};
+	
 	(*find all cofactors actually appearing in the certificate*)
 	While[Length[occurring] > 0,
 		i = occurring[[1]];
 		occurring = Delete[occurring,1];
 		AppendTo[done,i];
-		occurring = Union[occurring,Complement[cofactors[[i,All,2]],done]];
+		occurring = Select[Union[occurring,Complement[cofactors[[i,All,2]],done]], # > N&];
 	];
 	Do[
 		cofactors[[i]] = ReplacePart[#,2->F[[#[[2]]]]]&/@cofactors[[i]];
@@ -1633,7 +1634,7 @@ Copyright[a_String,b___String]:= Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 
 Copyright[
-    "Package OperatorGB version 1.2.0",
+    "Package OperatorGB version 1.2.1",
     "Copyright 2019, Institute for Algebra, JKU",
     "by Clemens Hofstadler, clemens.hofstadler@jku.at"];
 
