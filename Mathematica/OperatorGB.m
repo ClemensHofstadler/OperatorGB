@@ -18,7 +18,7 @@ Clear[
 	GroebnerWithoutCofactors,ApplyRules,
 	CreateRedSys,ToPoly,Rewrite,MultiplyOut,LinearCombinationQ,Interreduce,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
-	adj,Pinv,AddAdj,
+	adj,Pinv,AddAdj,IntegerCoeffQ,
 	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,QConsequenceQCrit,
 	QCompletion,
 	Certify,MaxIter,MaxDeg,Info,Parallel,Sorted,Criterion
@@ -105,10 +105,11 @@ ExpandLeft::usage=""
 ExpandRight::usage=""
 
 
-(*Adjungate operator definition*)
+(*Adjungate operator definition & auxiliary stuff*)
 adj::usage="adj[A] represents the adjoint of the operator A"
 Pinv::usage="Gives the 4 Moore-Penrose equations."
 AddAdj::usage="Adds the adjoint statements to a given list of statements."
+IntegerCoeffQ::usage="Tests if a certficate contains only integer coefficients."
 
 
 (*Quiver*)
@@ -1138,7 +1139,7 @@ Module[{x},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Adjungate operator definition & auxiliary stuff*)
 
 
@@ -1166,6 +1167,9 @@ Pinv[a_,b_] := {a**b**a-a,b**a**b- b,adj[b]**adj[a]-a**b,adj[a]**adj[b]-b**a};
 
 
 AddAdj[S_List] := Join[S,adj/@S];
+
+
+IntegerCoeffQ[certificate_] := FreeQ[certificate,Alternatives@@{Rational,Real}];
 
 
 (* ::Subsection::Closed:: *)
@@ -1506,7 +1510,7 @@ Module[{A,C,ABC},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Certify*)
 
 
@@ -1590,7 +1594,7 @@ Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,
 	If[info,
 		(*full info*)
 		If[MemberQ[alreadyReduced,False],
-			Print["\nDone! Not all claims could be reduced to 0."],
+			Print["\nFailed! Not all claims could be reduced to 0."],
 			Print["\nDone! All claims were successfully reduced to 0."];
 		];
 		{Map[QSignature[#,Q]&,assumptions],sigClaim,normalForm,certificate},
