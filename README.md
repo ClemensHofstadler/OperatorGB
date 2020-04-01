@@ -13,6 +13,12 @@ Version 1.2 includes (for both versions of the package):
   * A 'Certify' command that does everything from checking compatibility, to computing a Groebner basis as well as a cofactor representation all fully automatically.
   * Q-completion procedure (so far only in Mathematica) (new in this version)
 -----------
+NEW since Version 1.2:
+
+Mathematica:
+ * IntegerCoeffQ function
+ 
+----------- 
 TODO:
 
 Both:
@@ -26,3 +32,4 @@ Mathematica:
 Sage:
   * Q-order-compatibility
   * Q-completion
+  * IntegerCoeffQ function
