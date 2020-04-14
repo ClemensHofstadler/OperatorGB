@@ -16,7 +16,8 @@ Clear[
 	F4,
 	ReducedForm,
 	GroebnerWithoutCofactors,ApplyRules,
-	CreateRedSys,ToPoly,Rewrite,MultiplyOut,LinearCombinationQ,Interreduce,
+	CreateRedSys,ToPoly,Rewrite,Interreduce,
+	MultiplyOut,LinearCombinationQ,CertificateCoeffQ,CheckCertificate,CheckCertificates,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,Pinv,AddAdj,IntegerCoeffQ,
 	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,QConsequenceQCrit,
@@ -93,9 +94,15 @@ ApplyRules::usage="ApplyRules[exp,G] reduces the expression exp using polynomial
 CreateRedSys::usage="Converts polynomials into the data structure needed for the Groebner algorithm."
 ToPoly::usage="Converts an element of a reduction system back into a polynomial."
 Rewrite::usage="Rewrite[cofactorsF, cofactorsG] rewrites a linear combination, which is safed in cofactorsF, with the elements from cofactorsG."
+Interreduce::usage="Interreduce[ideal_] interreduces the polynomials in 'ideal'."
+
+
+(*Check certificate*)
 MultiplyOut::usage="To multiply out a list of cofactors given in terms of the built in non-commutative multiplication."
 LinearCombinationQ::usage="Checks whether a given set of triples is a linear combination of a set of polynomials."
-Interreduce::usage="Interreduce[ideal_] interreduces the polynomials in 'ideal'."
+CertificateCoeffQ::usage=""
+CheckCertificate::usage="Check that a single certificate indeed gives the claim, is w.r.t. to the assumptions and that it only consists of integer coefficients"
+CheckCertificates::usage="Applies CheckCertificate to several certificates"
 
 
 (*Collect cofactors*)
@@ -137,7 +144,7 @@ Begin["`Private`"]
 
 
 (* ::Subsection::Closed:: *)
-(*Non-commutative multiplication*)
+(*Noncommutative multiplication*)
 
 
 CoeffQ[_Rational]:=True
@@ -1035,12 +1042,6 @@ Module[{a,b,i,j,l,r,g,rules,occurring,result,G,cofactorsF,cofactorsG},
 ]
 
 
-MultiplyOut[cofactors_List]:=Expand[ToNonCommutativeMultiply[Total[Map[ToProd,cofactors]]]]
-
-
-LinearCombinationQ[triples_List, G_List] := AllTrue[triples[[All,2]],MemberQ[G,#]&]
-
-
 SetAttributes[MakeMonic,HoldFirst];
 
 MakeMonic[ideal_]:=
@@ -1104,6 +1105,36 @@ Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart,lc},
 
 
 (* ::Subsection::Closed:: *)
+(*Check Certificate*)
+
+
+MultiplyOut[certificate_List] := Expand[ToNonCommutativeMultiply[Total[Map[ToProd,certificate]]]]
+
+
+LinearCombinationQ[certificate_List, assumptions_List] := AllTrue[certificate[[All,2]],MemberQ[assumptions,#]&]
+
+
+CertificateCoeffQ[_Integer] := True
+CertificateCoeffQ[_] := False
+
+
+CoefficientTest[certificate_] := Module[
+	{terms},
+	terms = Flatten[Map[ToProd,Flatten[certificate]]/.Plus->List];
+	And @@ (MatchQ[0 | Prod[___] | _?CertificateCoeffQ * Prod[___]]/@terms)
+];
+
+
+CheckCertificate[certificate_,claim_, assumptions_] := 
+	(MultiplyOut[certificate] === claim) && 
+	LinearCombinationQ[certificate,assumptions] && 
+	CoefficientTest[certificate]
+
+
+CheckCertificates[certificates_,claims_,assumptions_] := MapThread[CheckCertificate[#1,#2,assumptions]&,{certificates,claims}]
+
+
+(* ::Subsection::Closed:: *)
 (*Collect cofactors*)
 
 
@@ -1139,7 +1170,7 @@ Module[{x},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Adjungate operator definition & auxiliary stuff*)
 
 
@@ -1167,9 +1198,6 @@ Pinv[a_,b_] := {a**b**a-a,b**a**b- b,adj[b]**adj[a]-a**b,adj[a]**adj[b]-b**a};
 
 
 AddAdj[S_List] := Join[S,adj/@S];
-
-
-IntegerCoeffQ[certificate_] := FreeQ[certificate,Alternatives@@{Rational,Real}];
 
 
 (* ::Subsection::Closed:: *)
@@ -1510,7 +1538,7 @@ Module[{A,C,ABC},
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Certify*)
 
 
