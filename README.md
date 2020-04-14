@@ -16,7 +16,8 @@ Version 1.2 includes (for both versions of the package):
 NEW since Version 1.2:
 
 Mathematica:
- * IntegerCoeffQ function (HAS TO BE ADAPTED !)
+ * IntegerCoeffQ function
+ * CheckCertificate function
  
 ----------- 
 TODO:
