@@ -17,7 +17,7 @@ Clear[
 	ReducedForm,
 	GroebnerWithoutCofactors,ApplyRules,
 	CreateRedSys,ToPoly,Rewrite,Interreduce,
-	MultiplyOut,LinearCombinationQ,CertificateCoeffQ,CheckCertificate,CheckCertificates,
+	MultiplyOut,LinearCombinationQ,CertificateCoeffQ,IntegerCoeffQ,CheckCertificate,CheckCertificates,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
 	adj,Pinv,AddAdj,IntegerCoeffQ,
 	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,QConsequenceQCrit,
@@ -101,6 +101,7 @@ Interreduce::usage="Interreduce[ideal_] interreduces the polynomials in 'ideal'.
 MultiplyOut::usage="To multiply out a list of cofactors given in terms of the built in non-commutative multiplication."
 LinearCombinationQ::usage="Checks whether a given set of triples is a linear combination of a set of polynomials."
 CertificateCoeffQ::usage=""
+IntegerCoeffQ::usage="Checks whether a given certificate only contains integer coefficients"
 CheckCertificate::usage="Check that a single certificate indeed gives the claim, is w.r.t. to the assumptions and that it only consists of integer coefficients"
 CheckCertificates::usage="Applies CheckCertificate to several certificates"
 
@@ -1104,14 +1105,14 @@ Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart,lc},
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Check Certificate*)
 
 
-MultiplyOut[certificate_List] := Expand[ToNonCommutativeMultiply[Total[Map[ToProd,certificate]]]]
+MultiplyOut[certificate:{{_,_,_}...}] := Expand[ToNonCommutativeMultiply[Total[Map[ToProd,certificate]]]]
 
 
-LinearCombinationQ[certificate_List, assumptions_List] := AllTrue[certificate[[All,2]],MemberQ[assumptions,#]&]
+LinearCombinationQ[certificate:{{_,_,_}...}, assumptions_List] := AllTrue[certificate[[All,2]],MemberQ[assumptions,#]&]
 
 
 CertificateCoeffQ[_Integer] := True
@@ -1125,7 +1126,14 @@ CoefficientTest[certificate_] := Module[
 ];
 
 
-CheckCertificate[certificate_,claim_, assumptions_] := 
+IntegerCoeffQ[certificate_] := Module[
+	{terms},
+	terms = Flatten[Map[ToProd,Flatten[certificate]]/.Plus->List];
+	And @@ (MatchQ[0 | Prod[___] | _Integer * Prod[___]]/@terms)
+];
+
+
+CheckCertificate[certificate:{{_,_,_}...},claim_, assumptions_] := 
 	(MultiplyOut[certificate] === claim) && 
 	LinearCombinationQ[certificate,assumptions] && 
 	CoefficientTest[certificate]
