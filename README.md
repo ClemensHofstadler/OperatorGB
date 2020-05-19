@@ -27,8 +27,9 @@ Both:
  * Test file
 
 Mathematica:
-  * Info: version that prints only some information
-  * Certify/Groebner without Info => many new lines. Get rid of this
+  * Info: version that prints only some information (done but not yet uploaded)
+  * Certify/Groebner without Info => many new lines. Get rid of this (done but not yet uploaded)
+  * Certify: change how returned normal forms are computed
   
 Sage:
   * Q-order-compatibility
