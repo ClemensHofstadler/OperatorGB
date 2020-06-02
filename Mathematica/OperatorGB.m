@@ -1,29 +1,57 @@
 (* ::Package:: *)
 
+(* ::Section:: *)
+(*Documentation*)
+
+
+(* ::Subsection:: *)
+(*ClearAll*)
+
+
 BeginPackage["OperatorGB`"]
 
 
 Global`OperatorGB::usage="";
 
 
-Clear[
+ClearAll[
+	(* Begin *)
+	VerboseOperatorGB,
+	(* Auxiliary stuff for GB computations *)
 	CoeffQ,Prod,ToProd,ToNonCommutativeMultiply,
 	SetUpRing,
 	WordOrder,varSets,
 	LeadingTerm,DegLex,WeightedDegLex,MultiLex,Weight,SortedQ,
 	ExtractReducibleWords,GenerateAmbiguities,Overlap,Inclusion,DeleteRedundant,
-	Groebner,CheckResolvability,
-	F4,
-	ReducedForm,
-	GroebnerWithoutCofactors,ApplyRules,
-	CreateRedSys,ToPoly,Rewrite,Interreduce,
-	MultiplyOut,LinearCombinationQ,CertificateCoeffQ,IntegerCoeffQ,CheckCertificate,CheckCertificates,
+	CreateRedSys,ToPoly,Rewrite,
 	CollectLeft,CollectRight,ExpandLeft,ExpandRight,
-	adj,Pinv,AddAdj,IntegerCoeffQ,
+	(* GB computations *)
+	Groebner,CheckResolvability,
+	GroebnerWithoutCofactors,ApplyRules,
+	Intersect,IntersectSubalgebra,
+	ReducedForm,
+	Interreduce,
+	(* Quiver *)
 	Quiver,QSignature,PlotQuiver,CompatibleQ,UniformlyCompatibleQ,QOrderCompatibleQ,QConsequenceQ,QConsequenceQCrit,
 	QCompletion,
-	Certify,MaxIter,MaxDeg,Info,Parallel,Sorted,Criterion
+	(* Certifying operator identities *)
+	adj,Pinv,AddAdj,IntegerCoeffQ,
+	ApplyLeftCancellability,
+	Certify,MaxIter,MaxDeg,Parallel,Sorted,Criterion,
+	MultiplyOut,LinearCombinationQ,CertificateCoeffQ,IntegerCoeffQ,CheckCertificate,CheckCertificates
 ]
+
+
+(* ::Subsection::Closed:: *)
+(*Begin*)
+
+
+(*Verbose*)
+VerboseOperatorGB::usage="Determines how much information of the computations is printed."
+
+
+(* ::Subsection::Closed:: *)
+(*Auxiliary stuff for GB computations*)
 
 
 (*Non-commutative multiplication*)
@@ -58,7 +86,7 @@ M1 and M2 have to be given in form of lists containig only elements from the lis
 "
 
 
-(*ambiguities*)
+(*Ambiguities*)
 Overlap::usage="Datastructure for overlap ambiguities."
 Inclusion::usage="Datastructure for inclusion ambiguities."
 ExtractReducibleWords::usage="Preprocessing before GenerateAmbiguities."
@@ -66,44 +94,11 @@ GenerateAmbiguities::usage="GenerateAmbiguities[words] computes all ambigutites 
 DeleteRedundant::usage="Chain criterion to remove redundant ambiguities."
 
 
-(*Groebner basis*)
-Groebner::usage="Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]False,Parallel->True,Sorted->True}]] executes at most maxiter iterations of the Buchberger algorithm to compute
-a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list of cofactors is saved in the list cofactors forming a linear combination of the new element. For further information concerning the OptionPatterns
-please see the documentation or the source code."
-CheckResolvability::usage=""
-
-
-(*F4)*)
-F4::usage="F4[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{N->100,Criterion->True,Ignore->0,MaxDeg->Infinity,Info\[Rule]True,Parallel->True,Sorted->True}]] executes at most maxiter iterations of Faugere's F4 algorithm to compute
-a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list of cofactors is saved in the list cofactors forming a linear combination of the new element. For further information concerning the OptionPatterns
-please see the source code."
-
-
-(*Find cofactors*)
-ReducedForm::usage="ReducedForm[cofactors,G,exp] reduces the expression exp by the elements of G and saves the cofactors of the reduction process in the list cofactors. The argument exp can also
-be a list of expressions, then all expressions are reduced."
-
-
-(*Groebner basis without cofactors*)
-GroebnerWithoutCofactors::usage="GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,Criterion->True}]] executes at most maxiter iterations 
-of the Buchberger algorithm to compute a (partial) Groebner basis of an ideal. For further information concerning the OptionPatterns please see the documentation or the source code."
-ApplyRules::usage="ApplyRules[exp,G] reduces the expression exp using polynomials from the set G."
-
-
 (*Additional stuff*)
 CreateRedSys::usage="Converts polynomials into the data structure needed for the Groebner algorithm."
 ToPoly::usage="Converts an element of a reduction system back into a polynomial."
 Rewrite::usage="Rewrite[cofactorsF, cofactorsG] rewrites a linear combination, which is safed in cofactorsF, with the elements from cofactorsG."
-Interreduce::usage="Interreduce[ideal_] interreduces the polynomials in 'ideal'."
 
-
-(*Check certificate*)
-MultiplyOut::usage="To multiply out a list of cofactors given in terms of the built in non-commutative multiplication."
-LinearCombinationQ::usage="Checks whether a given set of triples is a linear combination of a set of polynomials."
-CertificateCoeffQ::usage=""
-IntegerCoeffQ::usage="Checks whether a given certificate only contains integer coefficients"
-CheckCertificate::usage="Check that a single certificate indeed gives the claim, is w.r.t. to the assumptions and that it only consists of integer coefficients"
-CheckCertificates::usage="Applies CheckCertificate to several certificates"
 
 
 (*Collect cofactors*)
@@ -113,11 +108,39 @@ ExpandLeft::usage=""
 ExpandRight::usage=""
 
 
-(*Adjungate operator definition & auxiliary stuff*)
-adj::usage="adj[A] represents the adjoint of the operator A"
-Pinv::usage="Gives the 4 Moore-Penrose equations."
-AddAdj::usage="Adds the adjoint statements to a given list of statements."
-IntegerCoeffQ::usage="Tests if a certficate contains only integer coefficients."
+(* ::Subsection::Closed:: *)
+(*GB computations*)
+
+
+(*Groebner basis*)
+Groebner::usage="Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Parallel->True,Sorted->True}]] executes at most maxiter iterations of the Buchberger algorithm to compute
+a (partial) Groebner basis of an ideal. Additionally, for every new element in the Groebner basis a list of cofactors is saved in the list cofactors forming a linear combination of the new element. For further information concerning the OptionPatterns
+please see the documentation or the source code."
+CheckResolvability::usage=""
+
+
+(*Groebner basis without cofactors*)
+GroebnerWithoutCofactors::usage="GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Parallel->True,Sorted->True,Criterion->True}]] executes at most maxiter iterations 
+of the Buchberger algorithm to compute a (partial) Groebner basis of an ideal. For further information concerning the OptionPatterns please see the documentation or the source code."
+ApplyRules::usage="ApplyRules[exp,G] reduces the expression exp using polynomials from the set G."
+
+
+(*Intersection*)
+Intersect::usage="Compute a (partial) Groeber basis of the intersection of two two-sided ideals."
+IntersectSubalgebra::usage="Compute a (partial) Groebner basis of the intersection of a two-sided ideal with a (finitely generated) subalgebra."
+
+
+(*Computing normal forms*)
+ReducedForm::usage="ReducedForm[cofactors,G,exp] reduces the expression exp by the elements of G and saves the cofactors of the reduction process in the list cofactors. The argument exp can also
+be a list of expressions, then all expressions are reduced."
+
+
+(*Interreduction*)
+Interreduce::usage="Interreduce[ideal_] interreduces the polynomials in 'ideal'."
+
+
+(* ::Subsection::Closed:: *)
+(*Quiver*)
 
 
 (*Quiver*)
@@ -136,12 +159,47 @@ QConsequenceQCrit::usage="Tests whether a certificate is a Q-consequence of a se
 QCompletion::usage="Q-completion procedure"
 
 
+(* ::Subsection::Closed:: *)
+(*Certifying operator identities*)
+
+
+(*Adjungate operator definition & auxiliary stuff*)
+adj::usage="adj[A] represents the adjoint of the operator A"
+Pinv::usage="Gives the 4 Moore-Penrose equations."
+AddAdj::usage="Adds the adjoint statements to a given list of statements."
+IntegerCoeffQ::usage="Tests if a certficate contains only integer coefficients."
+
+
+(*Cancellability*)
+ApplyLeftCancellability::usage="Tries to find elements in a given Ideal I to which left cancellability of a given element can applied."
+
+
 (*Certify*)
 Certify::usage="Certifies whether a certain claim is a consequence of some assumptions via Groebner 
 basis computations. Additionally, compatibility with a given quiver is checked."
 
 
+(*Check certificate*)
+MultiplyOut::usage="To multiply out a list of cofactors given in terms of the built in non-commutative multiplication."
+LinearCombinationQ::usage="Checks whether a given set of triples is a linear combination of a set of polynomials."
+CertificateCoeffQ::usage=""
+IntegerCoeffQ::usage="Checks whether a given certificate only contains integer coefficients"
+CheckCertificate::usage="Check that a single certificate indeed gives the claim, is w.r.t. to the assumptions and that it only consists of integer coefficients"
+CheckCertificates::usage="Applies CheckCertificate to several certificates"
+
+
+(* ::Section::Closed:: *)
+(*Begin*)
+
+
 Begin["`Private`"]
+
+
+VerboseOperatorGB = 2
+
+
+(* ::Section::Closed:: *)
+(*Auxiliary stuff for GB computations*)
 
 
 (* ::Subsection::Closed:: *)
@@ -171,20 +229,20 @@ ToNonCommutativeMultiply[poly_]:= poly//.{Prod[]->1, Prod[a_]->Times[a], Prod[a_
 (*Setting up the ring*)
 
 
-SetUpRing[vars_List,OptionsPattern[{Info->True}]]:= (
-WordOrder = vars;
-SortedQ := DegLex;
-If[OptionValue[Info],
-	Print[Sequence@@Map[ToString[#,StandardForm]<>" < "&,vars[[;;-2]]] <> ToString[vars[[-1]],StandardForm]];
-];
+SetUpRing[vars_List]:= (
+	WordOrder = vars;
+	SortedQ := DegLex;
+	If[VerboseOperatorGB > 0,
+		Print[Sequence@@Map[ToString[#,StandardForm]<>" < "&,vars[[;;-2]]] <> ToString[vars[[-1]],StandardForm]];
+	];
 );
 
 
-SetUpRing[S1_List,SRest:_List..,OptionsPattern[{Info->True}]]:= Module[{string},
+SetUpRing[S1_List,SRest:_List..]:= Module[{string},
 	WordOrder = Flatten[Join[S1,SRest]]; 
 	varSets = {S1,SRest};
 	SortedQ := MultiLex;
-	If[OptionValue[Info],
+	If[VerboseOperatorGB > 0,
 		string = "";
 		Do[
 			string = string <> Sequence@@Map[ToString[#,StandardForm]<>" < "&,S[[;;-2]]] <> ToString[S[[-1]],StandardForm];
@@ -389,7 +447,7 @@ GenerateAmbiguities[l_List,maxdeg_:Infinity,OptionsPattern[Parallel->True]] :=
 (*Chain Criterion*)
 
 
-DeleteRedundantSimple[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+DeleteRedundantSimple[amb_List,lt_List]:= 
 Module[{result,pattern,t,i,j,k,V,l},
 	t = AbsoluteTiming[
 	result = amb;
@@ -400,13 +458,13 @@ Module[{result,pattern,t,i,j,k,V,l},
 		result = DeleteCases[result,pattern]
 	,{l,lt}];
 	][[1]];
-	If[OptionValue[Info],
+	If[VerboseOperatorGB > 1,
 		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
 	result
 ]
 
 
-DeleteRedundantComplex[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+DeleteRedundantComplex[amb_List,lt_List]:= 
 Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,pre,post,l,ltsort,k,L,R},
 	t = AbsoluteTiming[
 	overlaps = Cases[amb,_Overlap];
@@ -448,13 +506,13 @@ Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,pre,post,l,ltsort,k,L,R},
 	{l,ltsort}];
 	][[1]];
 	result = Join[overlaps,incls];
-	If[OptionValue[Info],
+	If[VerboseOperatorGB > 1,
 		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
 	result
 ]
 
 
-DeleteRedundant[amb_List,lt_List,OptionsPattern[{Info->False}]]:= 
+DeleteRedundant[amb_List,lt_List]:= 
 Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,l,k},
 	t = AbsoluteTiming[
 	overlaps = Cases[amb,_Overlap];
@@ -478,7 +536,7 @@ Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,l,k},
 		{l,lt}];
 	][[1]];
 	result = Join[overlaps,incls];
-	If[OptionValue[Info],
+	If[VerboseOperatorGB > 1,
 		Print["Removed ", Length[amb] - Length[result], " ambiguities in ",t]];
 	result
 ]
@@ -488,7 +546,7 @@ Module[{result,overlaps,incls,t,i,j,pattern,V,A,C,X,Y,l,k},
 (*Gebauer-M\[ODoubleDot]ller criterion*)
 
 
-GebauerMoeller[ambInput_List,lt_List,OptionsPattern[{Info->False}]]:= 
+GebauerMoeller[ambInput_List,lt_List]:= 
 Module[{amb,result,t,A,C,i,s,pattern,a,j,APrime,CPrime,pos,selected,idx},
 	t = AbsoluteTiming[
 	amb = SortBy[ambInput,Length[#[[1]]]&];
@@ -562,7 +620,7 @@ Module[{amb,result,t,A,C,i,s,pattern,a,j,APrime,CPrime,pos,selected,idx},
 			][[2,1]];
 	]
 	][[1]];
-	If[OptionValue[Info],
+	If[VerboseOperatorGB > 1,
 		Print["Removed ", Length[ambInput] - Length[result], " ambiguities in ",t]];
 	Join[Cases[result,_Overlap],Cases[result,_Inclusion]]
 ]
@@ -602,385 +660,6 @@ SPoly2[amb:_Overlap|_Inclusion,fi_,fj_]:=
 			(*Inclusion[CBA,C,A]*)
 			fi[[2]] - Prod[amb[[2]],fj[[2]],amb[[3]]]
 	]
-
-
-(* ::Subsection::Closed:: *)
-(*Groebner basis*)
-
-
-(* ::Text:: *)
-(*Implementation of the Buchberger algorithm to compute a (partial) Groebner basis of the ideal 'ideal' with at most 'maxiter' iterations being executed (default: 10). The return value is a  set of polynomials G = {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from 'ideal' and new elements g1,...,gm. For every element g\in G a list forming a linear combination of g consisting of elements from 'ideal' and certain cofactors is saved in the list cofactors.*)
-(**)
-(*OptionPattern:*)
-(*	- Criterion (default: True): Tries to detect and delete redundant ambiguities during the Groebner basis computation.*)
-(*	- Ignore (default: 0): A non-negative integer that determines how many elements of the input will be ignored during the first computation of the ambiguities. *)
-(*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
-(*	- Info (default: False): Prints information about the computation progress.*)
-(*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
-(*	- Sorted (default: True):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
-(*	- IterCount (default: 0): defines from which number the iterations are counted (only relevant for the printed information)*)
-(**)
-
-
-SetAttributes[Groebner,HoldFirst]
-
-Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,IterCount->0}]]:=
-Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,intern,criterion,i},
-	info = OptionValue[Info];
-	sorted = OptionValue[Sorted];
-	parallel = OptionValue[Parallel];
-	maxdeg = OptionValue[MaxDeg];
-	criterion = OptionValue[Criterion];
-	intern = FreeQ[ideal,NonCommutativeMultiply]; 
-
-	If[intern,
-		G = ideal,
-		G = ToProd/@ideal;
-		lc = MakeMonic[G];
-		cofactors = MapIndexed[{{1/#1*Prod[],#2[[1]],Prod[]}}&,lc];
-	];
-	
-	G = CreateRedSys[G];
-	oldlength = Length[G];
-	t1 = 0; t2 = 0; count = 0;
-	If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
-
-	spol = CheckResolvability[G,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
-	rules = ExtractRules[G];
-
-	While[Length[spol] > 0 && count < maxiter,
-		t1 = AbsoluteTiming[
-		i = Length[spol];
-		Monitor[Do[
-			(*reduce it*)
-			r = Reap[p[[1]]//.rules]; 
-			h = r[[1]];
-			If[h =!= 0,
-				If[Length[r[[2]]] > 0,
-					p[[2]]\[NonBreakingSpace]= Join[p[[2]],r[[2,1]]]
-				];
-				lt = LeadingTermIntern[h];
-				If[lt[[1]] =!= 1, 
-					h = Expand[1/lt[[1]]*h]; p[[2]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[2]])
-				];
-				hrule = CreateRedSys[h];
-				AppendTo[G,hrule];
-				AppendTo[cofactors,p[[2]]]; 
-				AppendTo[rules,ExtractRule[hrule,Length[G]]];
-			];
-			i--;
-		,{p,spol}];,i];][[1]];
-		
-		count++;
-		If[info, 
-			Print["The second reduction took ", t1];
-			Print["Iteration ",count + OptionValue[IterCount], " finished. G has now ", Length[G]," elements\n"]
-		];
-		If[count < maxiter, 
-			spol = CheckResolvability[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
-			oldlength = Length[G];
-		];
-	];
-	
-	G = ToPoly[G];
-	
-	If[intern,
-		G,
-		RewriteGroebner[cofactors,ideal,Info->info];
-		ToNonCommutativeMultiply[G]
-	]
-]
-
-
-(* ::Text:: *)
-(*CheckResolvability returns all S-polynomials from the reduction system sys which can not be reduced to zero. Additionally, for each S-polynomial a list containing the linear combination how the S-polynomial was generated from the elements of sys is returned.*)
-(*For a description of the OptionPatterns see the documentation of the Groebner method.*)
-
-
-CheckResolvability[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True}]]:=
-Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
-	info = OptionValue[Info];
-	parallel = OptionValue[Parallel];
-
-	(*generate ambiguities*)
-	words = ExtractReducibleWords[sys];
-	t1 = AbsoluteTiming[
-		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],OptionValue[MaxDeg],Parallel->parallel];
-	][[1]];
-	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
-	
-	(*process ambiguities*)
-	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb,words,Info->info];
-	];
-	If[OptionValue[Sorted],
-		amb = SortBy[amb,Length[#[[1]]]&];
-	];
-	
-	(*generate S-polynomials*)
-	t2 = AbsoluteTiming[
-	spol = DeleteCases[
-		If[parallel,
-			ParallelMap[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],
-			Map[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb]
-		]
-	,{0,_}];
-	][[1]];
-	If[info,Print["Generating S-polys: ",t2 ," (",Length[spol], " in total)"]];
-	
-	(*reduce S-polynomials*)
-	rules = ExtractRules[sys];
-	(*parallelizing this makes it only slower*)
-	t3 = AbsoluteTiming[
-	spol = DeleteDuplicatesBy[DeleteCases[Map[(r = Reap[#[[1]]//.rules]; If[r[[1]]=!= 0,
-											If[Length[r[[2]]] > 0,
-												{r[[1]],Join[#[[2]],r[[2,1]]]},
-												{r[[1]],#[[2]]}
-												],
-											{}
-											])&,spol],{}],#[[1]]&];
-	][[1]];
-	If[info,Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]];
-	If[OptionValue[Sorted],
-		If[$VersionNumber < 12,
-			Sort[spol,SortedQ[LeadingTermIntern[#1[[1]]][[2]],LeadingTermIntern[#2[[1]]][[2]]]&],
-			SortBy[spol,LeadingTermIntern[#[[1]]][[2]]&,SortedQ]
-		],
-		spol
-	]
-]
-
-
-(* ::Text:: *)
-(*ExtractRules[vars,sys] generates a set of reduction rules out of the reduction system sys with the special feature that the cofactors of the reduction will be sowed whenever such a rule is applied. They can then be reaped using the Reap command.*)
-
-
-ExtractRules[sys_]:=
-Module[{a,b,coeff,i,p,q,f},
-	a=Unique[];b=Unique[];coeff=Unique[];
-	MapIndexed[(i = #2[[1]]; f = #1;
-		p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],f[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
-		q = Expand[Evaluate[coeff]*Prod[Evaluate[a],f[[2]],Evaluate[b]]];
-		With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]])&
-	,sys]//ReleaseHold
-]
-
-
-ExtractRule[f_,i_]:=
-Module[{a,b,coeff,p,q},
-	a=Unique[];b=Unique[];coeff=Unique[];
-	p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],f[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
-	q = Expand[Evaluate[coeff]*Prod[Evaluate[a],f[[2]],Evaluate[b]]];
-	With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]//ReleaseHold
-]
-
-
-SetAttributes[RewriteGroebner,HoldFirst]
-
-RewriteGroebner[cofactors_,F_,OptionsPattern[{Info->False}]]:=
-Module[{t,info,N,NC,i,j,k,a,f,b,l,r},
-	t = AbsoluteTiming[
-	info = OptionValue[Info];
-	If[info,
-		Print["Rewriting the cofactors has started."];
-	];
-	N = Length[F];
-	NC = Length[cofactors];
-	cofactors[[;;N,1,2]] = F;
-	
-	cofactors = DeleteCases[CollectLeft /@ cofactors,{0,_,_},2];
-	
-	Monitor[
-	Do[
-		cofactors[[j]]\[NonBreakingSpace]= Flatten[Reap[
-			Do[
-				{a,i,b} = cofactors[[j,k]];
-				Sow[Map[{Prod[a,#[[1]]],#[[2]],Prod[#[[3]],b]}&,cofactors[[i]]]];
-			,{k,Length[cofactors[[j]]]}];
-		][[2]],2]//CollectLeft//ExpandLeft;
-	,{j,N+1,NC}];
-	,NC - j];
-	cofactors = ToNonCommutativeMultiply[cofactors];
-	][[1]];
-	If[info,
-		Print["Rewriting the cofactors took in total ", t];
-	];
-]
-
-
-(* ::Subsection::Closed:: *)
-(*Find Cofactors*)
-
-
-(* ::Text:: *)
-(*ReducedForm[cofactors,G,exp] can be used to reduce the expression exp with the elements of G. The linear combination of these reduction steps is saved in the list cofactors. *)
-(*Exp can also be a list of expressions. *)
-
-
-SetAttributes[ReducedForm,HoldFirst]
-
-ReducedForm[cofactors_,G_,exp_]:=
-Module[{t,rules,a,i,b,j},
-	cofactors = {};
-	rules = ExtractRules[CreateRedSys[G]];
-	t = Reap[ToProd[exp]//.rules];
-	If[Length[t[[2]]] > 0,
-		cofactors = ToNonCommutativeMultiply[Map[({a,j,b} = #; {-a,G[[j]],b})&, t[[2,1]]]];
-	];
-	ToNonCommutativeMultiply[t[[1]]]
-]
-
-
-ReducedForm[cofactors_,G_,exp:_?ListQ]:=
-Module[{i,t,rules,a,b,j},
-	cofactors = Table[{},Length[exp]];
-	rules = ExtractRules[CreateRedSys[G]];
-	Table[
-		t = Reap[ToProd[exp[[i]]]//.rules];
-		If[Length[t[[2]]] > 0,
-			cofactors[[i]] = ToNonCommutativeMultiply[Map[({a,j,b} = #; {-a,G[[j]],b})&, t[[2,1]]]];
-		];
-		ToNonCommutativeMultiply[t[[1]]]
-	,{i,Length[exp]}
-	]
-]
-
-
-SetAttributes[ReducedFormIntern,HoldFirst]
-
-ReducedFormIntern[cofactors_,G_,exp:_?ListQ,OptionsPattern[{Shuffle->False}]]:=
-Module[{i,t,rules},
-	cofactors = Table[{},Length[exp]];
-	rules = ExtractRules[CreateRedSys[G]];
-	If[OptionValue[Shuffle],
-		rules = RandomSample[rules];
-	];
-	Table[
-		t = Reap[ToProd[exp[[i]]]//.rules];
-		If[Length[t[[2]]] > 0,
-			cofactors[[i]] = ToNonCommutativeMultiply[ReplacePart[#,1->-#[[1]]]&/@t[[2,1]]];
-		];
-		ToNonCommutativeMultiply[t[[1]]]
-	,{i,Length[exp]}
-	]
-]
-
-
-(* ::Subsection::Closed:: *)
-(*Groebner basis without cofactors*)
-
-
-(* ::Text:: *)
-(*Implementation of the Buchberger algorithm to compute a (partial) Groebner basis of the ideal 'ideal' with at most 'maxiter' iterations being executed (default: 10). The return value is a  set of polynomials {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from 'ideal' and new elements g1,...,gm. *)
-(**)
-(*OptionPattern:*)
-(*	- Criterion (default: True): Tries to detect and delete redundant ambiguities during the Groebner basis computation.*)
-(*	- Ignore (default: 0): A non-negative integer that determines how many elements of the input will be ignored during the first computation of the ambiguities. *)
-(*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
-(*	- Info (default: True): Prints information about the computation progress.*)
-(*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
-(*	- Sorted (default: True):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
-(*	*)
-
-
-GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,Criterion->True}]]:=
-Module[{count,spol,p,h,G,lt,info,t,rules,criterion,oldlength,maxdeg,incl,pos,sorted,parallel,syslength,i},
-
-	info = OptionValue[Info];
-	criterion = OptionValue[Criterion];
-	sorted = OptionValue[Sorted];
-	parallel = OptionValue[Parallel];
-	maxdeg = OptionValue[MaxDeg];
-
-	G = CreateRedSys[ToProd/@ideal];
-	syslength = oldlength = Length[G];
-	If[info,Print["G has ", Length[G]," elements in the beginning."];Print[]];
-	count = 0; t = 0;
-
-	spol = CheckResolvability2[G,0,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
-	rules = ExtractRules2[G];
-
-	While[Length[spol] > 0 && count < maxiter,
-		i = Length[spol];
-		t = AbsoluteTiming[Monitor[Do[
-			h = p//.rules;
-			If[h =!= 0,  
-				lt = LeadingTermIntern[h];
-				If[lt[[1]] =!= 1, h = Expand[1/lt[[1]]*h]];
-				AppendTo[G,CreateRedSys[h]];
-				AppendTo[rules,Sequence@@ExtractRules2[{G[[-1]]}]]
-			];
-			i--;
-		,{p,spol}];,i];][[1]];
-		If[info, Print["The reduction took ", t]];
-		count = count + 1;
-		If[info,Print["Iteration ",count, " finished. G has now ", Length[G]," elements"];Print[]];
-		If[count < maxiter,
-			spol = CheckResolvability2[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
-			oldlength = Length[G];
-		];
-	];
-	ToNonCommutativeMultiply[ToPoly[G]]
-]
-
-
-CheckResolvability2[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Sorted->True,Parallel->True}]]:=
-Module[{amb,spol,info,t1,t2,lists,rules,words,parallel},
-	info = OptionValue[Info];
-	parallel = OptionValue[Parallel];
-
-	words = ExtractReducibleWords[sys];
-	rules = ExtractRules2[sys];
-	
-	(*generate ambiguities*)
-	t1 = AbsoluteTiming[
-		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],OptionValue[MaxDeg],Parallel->True]
-	][[1]];
-	If[info,Print[Length[amb]," ambiguities in total (computation took ", t1, ")"]];
-	
-	(*process ambiguities*)
-	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb,words[[All,1]],Info->info]
-	];
-	If[OptionValue[Sorted],
-		amb = SortBy[amb,Length[#[[1]]]&];
-	];
-	
-	(*generate and reduce S-polynomials*)
-	t2 = AbsoluteTiming[
-	If[parallel && Length[amb] > 300,
-		spol = DeleteDuplicates[DeleteCases[ParallelMap[SPoly2[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]//.rules &,amb,DistributedContexts->Automatic,Method->"ItemsPerEvaluation" -> 1000],0]],
-		spol = DeleteDuplicates[DeleteCases[Map[SPoly2[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]//.rules &,amb],0]]];
-	][[1]];
-
-	If[info, Print[Length[spol]," different S-polynomials did not reduce to 0 (computation took ",t2,")"]];
-	If[OptionValue[Sorted],
-		If[$VersionNumber < 12,
-			Sort[spol,SortedQ[LeadingTermIntern[#1][[2]],LeadingTermIntern[#2][[2]]]&],
-			SortBy[spol,LeadingTermIntern[#][[2]]&,SortedQ]
-		],
-		spol
-	]
-]
-
-
-(* ::Text:: *)
-(*Parallelising this function does not make sense. It is faster when executed sequential.*)
-
-
-ExtractRules2[sys_]:=
-Module[{a,b,i},
-	a=Unique[];b=Unique[];
-	Table[Prod[Pattern[Evaluate[a],BlankNullSequence[]],i[[1]],Pattern[Evaluate[b],BlankNullSequence[]]]->
-		Prod[a,i[[2]],b],{i,sys}]
-]
-
-
-ApplyRules[expr_List,G_]:= ApplyRules[#,G]&/@expr
-
-
-ApplyRules[expr_,G_]:=
-	ToNonCommutativeMultiply[ToProd[expr]//.ExtractRules[CreateRedSys[G]]]
 
 
 (* ::Subsection::Closed:: *)
@@ -1053,95 +732,6 @@ Module[{lc},
 ]
 
 
-Interreduce[ideal_,OptionsPattern[{InputProd->False}]]:=
-Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart,lc},
-	(*set everything up*)
-	G = If[OptionValue[InputProd],
-		ideal,
-		ToProd/@ideal
-	];
-	lc = MakeMonic[G];
-	cofactors = MapIndexed[{{1/#1*Prod[],#2[[1]],Prod[]}}&,lc];
-	
-	sys = CreateRedSys[ideal];
-	a=Unique[];b=Unique[];
-	coeff = Unique[];
-	rules = ReleaseHold[Table[
-		p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],sys[[i,1]],Pattern[Evaluate[b],BlankNullSequence[]]];
-		q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[i,2]],Evaluate[b]]];
-		With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]
-	,{i,Length[sys]}]];
-	i = 1; s = Length[G];
-	
-	(*actual interreduction*)
-	While[i <= s,
-		If[G[[i]]===Null,i++;Continue[]];
-		r = Reap[gi = G[[i]]//.Drop[rules,{i}]];
-		If[gi===0,
-			rules[[i]] = Null->Null;
-			G[[i]] = Null;
-			cofactors[[i]] = Null;
-			i++,
-			If[gi =!= G[[i]],
-				lt = LeadingTermIntern[gi];
-				r = r[[2,1]];
-				newPart = Flatten[Table[Map[{Prod[r[[i,1]],#[[1]]],#[[2]],Prod[#[[3]],r[[i,3]]]}&,cofactors[[r[[i,2]]]]],{i,Length[r]}],1];
-				cofactors[[i]] = Join[cofactors[[i]],newPart];
-				If[lt[[1]] =!= 1, 
-					gi = Expand[1/lt[[1]]*gi]; 
-					cofactors[[i]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ cofactors[[i]]);
-				];
-				G[[i]]=gi;
-				sys = CreateRedSys[gi];
-				p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],sys[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
-				q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[2]],Evaluate[b]]];
-				rules[[i]] = ReleaseHold[With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]];
-				i = 1,
-				i++;
-			];
-		];
-	];
-	{DeleteCases[G,Null],Map[ExpandLeft[CollectLeft[#]]&,DeleteCases[cofactors,Null]]}
-]
-
-
-(* ::Subsection:: *)
-(*Check Certificate*)
-
-
-MultiplyOut[certificate:{{_,_,_}...}] := Expand[ToNonCommutativeMultiply[Total[Map[ToProd,certificate]]]]
-
-
-LinearCombinationQ[certificate:{{_,_,_}...}, assumptions_List] := AllTrue[certificate[[All,2]],MemberQ[assumptions,#]&]
-
-
-CertificateCoeffQ[_Integer] := True
-CertificateCoeffQ[_] := False
-
-
-CoefficientTest[certificate_] := Module[
-	{terms},
-	terms = Flatten[Map[ToProd,Flatten[certificate]]/.Plus->List];
-	And @@ (MatchQ[0 | Prod[___] | _?CertificateCoeffQ * Prod[___]]/@terms)
-];
-
-
-IntegerCoeffQ[certificate_] := Module[
-	{terms},
-	terms = Flatten[Map[ToProd,Flatten[certificate]]/.Plus->List];
-	And @@ (MatchQ[0 | Prod[___] | _Integer * Prod[___]]/@terms)
-];
-
-
-CheckCertificate[certificate:{{_,_,_}...},claim_, assumptions_] := 
-	(MultiplyOut[certificate] === claim) && 
-	LinearCombinationQ[certificate,assumptions] && 
-	CoefficientTest[certificate]
-
-
-CheckCertificates[certificates_,claims_,assumptions_] := MapThread[CheckCertificate[#1,#2,assumptions]&,{certificates,claims}]
-
-
 (* ::Subsection::Closed:: *)
 (*Collect cofactors*)
 
@@ -1178,37 +768,692 @@ Module[{x},
 ]
 
 
+(* ::Section::Closed:: *)
+(*GB computations*)
+
+
 (* ::Subsection::Closed:: *)
-(*Adjungate operator definition & auxiliary stuff*)
+(*Groebner basis*)
 
 
 (* ::Text:: *)
-(*Properties of the adjoint operator. Compatible with Prod[] and Mathematica's non-commutative multiplication.*)
+(*Implementation of the Buchberger algorithm to compute a (partial) Groebner basis of the ideal 'ideal' with at most 'maxiter' iterations being executed (default: 10). The return value is a  set of polynomials G = {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from 'ideal' and new elements g1,...,gm. For every element g\in G a list forming a linear combination of g consisting of elements from 'ideal' and certain cofactors is saved in the list cofactors.*)
+(**)
+(*OptionPattern:*)
+(*	- Criterion (default: True): Tries to detect and delete redundant ambiguities during the Groebner basis computation.*)
+(*	- Ignore (default: 0): A non-negative integer that determines how many elements of the input will be ignored during the first computation of the ambiguities. *)
+(*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
+(*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
+(*	- Sorted (default: True):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
+(*	- IterCount (default: 0): defines from which number the iterations are counted (only relevant for the printed information)*)
+(**)
 
 
-adj[Prod[a_]]:=Prod[adj[a]]
-adj[Prod[a__,b__]] := Prod[adj[Prod[b]],adj[Prod[a]]]
-adj[Prod[]]:= Prod[]
-adj[Times[a__,Prod[b___]]]:= a adj[Prod[b]]
-adj[a___,b_Plus,c___]:=(adj[a,#,c]&/@b)
-adj[adj[a__]] := a
+SetAttributes[Groebner,HoldFirst]
+
+Groebner[cofactors_,ideal_, maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Parallel->True,Sorted->True,IterCount->0}]]:=
+Module[{lc,count,spol,lt,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,intern,criterion,i,itercount},
+	sorted = OptionValue[Sorted];
+	parallel = OptionValue[Parallel];
+	maxdeg = OptionValue[MaxDeg];
+	criterion = OptionValue[Criterion];
+	itercount = OptionValue[IterCount];
+	intern = !FreeQ[ideal,Prod]; 
+	
+	If[Head[cofactors] =!= List,
+		cofactors = {};
+	];
+
+	If[intern,
+		G = ideal,
+		G = ToProd/@ideal;
+		lc = MakeMonic[G];
+		cofactors = MapIndexed[{{1/#1*Prod[],#2[[1]],Prod[]}}&,lc];
+	];
+	
+	G = CreateRedSys[G];
+	oldlength = OptionValue[Ignore];
+	t1 = 0; t2 = 0; count = 0;
+	If[VerboseOperatorGB > 0,
+		Print["G has ", Length[G]," elements in the beginning.\n"]
+	];
+
+	rules = ExtractRules[G];
+	spol = {0};
+
+	While[Length[spol] > 0 && count < maxiter,
+		count++;
+		If[VerboseOperatorGB > 0,
+			Print["Starting iteration ", count + itercount ,"..."]
+		];
+		spol = CheckResolvability[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Sorted->sorted,Parallel->parallel];
+		oldlength = Length[G];
+		
+		t1 = AbsoluteTiming[
+		i = Length[spol];
+		Monitor[Do[
+			(*reduce it*)
+			r = Reap[p[[1]]//.rules]; 
+			h = r[[1]];
+			If[h =!= 0,
+				If[Length[r[[2]]] > 0,
+					p[[2]]\[NonBreakingSpace]= Join[p[[2]],r[[2,1]]]
+				];
+				lt = LeadingTermIntern[h];
+				If[lt[[1]] =!= 1, 
+					h = Expand[1/lt[[1]]*h]; p[[2]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ p[[2]])
+				];
+				hrule = CreateRedSys[h];
+				AppendTo[G,hrule];
+				AppendTo[cofactors,p[[2]]]; 
+				AppendTo[rules,ExtractRule[hrule,Length[G]]];
+			];
+			i--;
+		,{p,spol}];,i];][[1]];
+		
+		If[VerboseOperatorGB > 1, 
+			Print["The second reduction took ", t1]
+		];
+		If[VerboseOperatorGB > 0,
+			Print["Iteration ",count + itercount, " finished. G has now ", Length[G]," elements\n"]
+		];
+	];
+	
+	G = ToPoly[G];
+	
+	If[intern,
+		G,
+		RewriteGroebner[cofactors,ideal];
+		ToNonCommutativeMultiply[G]
+	]
+]
 
 
-adj[NonCommutativeMultiply[a_,b_]] := NonCommutativeMultiply[adj[b],adj[a]]
-adj[a_?CoeffQ]:= a
-adj[-a_]:= -adj[a];
-adj[Times[a_?CoeffQ,NonCommutativeMultiply[b___]]]:= a adj[NonCommutativeMultiply[b]]
-adj[Times[a_?CoeffQ,b_]]:=a adj[b]
+(* ::Text:: *)
+(*CheckResolvability returns all S-polynomials from the reduction system sys which can not be reduced to zero. Additionally, for each S-polynomial a list containing the linear combination how the S-polynomial was generated from the elements of sys is returned.*)
+(*For a description of the OptionPatterns see the documentation of the Groebner method.*)
 
 
-Pinv[a_] := {a**SuperDagger[a]**a-a,SuperDagger[a]**a**SuperDagger[a]- SuperDagger[a],adj[SuperDagger[a]]**adj[a]-a**SuperDagger[a],adj[a]**adj[SuperDagger[a]]-SuperDagger[a]**a};
-Pinv[a_,b_] := {a**b**a-a,b**a**b- b,adj[b]**adj[a]-a**b,adj[a]**adj[b]-b**a};
+CheckResolvability[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Parallel->True,Sorted->True}]]:=
+Module[{amb,spol,rules,parallel,words,r,t1,t2,t3,str},
+	parallel = OptionValue[Parallel];
+
+	(*generate ambiguities*)
+	words = ExtractReducibleWords[sys];
+	t1 = AbsoluteTiming[
+		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],OptionValue[MaxDeg],Parallel->parallel];
+	][[1]];
+	If[VerboseOperatorGB > 0,
+		str = ToString[Length[amb]] <> " ambiguities in total" <> If[VerboseOperatorGB > 1, " (computation took " <> ToString[t1] <> ")",""];
+		Print[str];
+	];
+	
+	(*process ambiguities*)
+	If[OptionValue[Criterion],
+		amb = DeleteRedundant[amb,words];
+	];
+	If[OptionValue[Sorted],
+		amb = SortBy[amb,Length[#[[1]]]&];
+	];
+	
+	(*generate S-polynomials*)
+	t2 = AbsoluteTiming[
+	spol = DeleteCases[
+		If[parallel,
+			ParallelMap[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb,DistributedContexts->Automatic,Method->"CoarsestGrained"],
+			Map[SPoly[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]&,amb]
+		]
+	,{0,_}];
+	][[1]];
+	
+	If[VerboseOperatorGB > 1,
+		Print["Generating S-polys: ",t2 ," (",Length[spol], " in total)"]
+	];
+	
+	(*reduce S-polynomials*)
+	rules = ExtractRules[sys];
+	(*parallelizing this makes it only slower*)
+	t3 = AbsoluteTiming[
+	spol = DeleteDuplicatesBy[DeleteCases[Map[(r = Reap[#[[1]]//.rules]; If[r[[1]]=!= 0,
+											If[Length[r[[2]]] > 0,
+												{r[[1]],Join[#[[2]],r[[2,1]]]},
+												{r[[1]],#[[2]]}
+												],
+											{}
+											])&,spol],{}],#[[1]]&];
+	][[1]];
+	If[VerboseOperatorGB > 1,
+		Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]
+	];
+	If[OptionValue[Sorted],
+		If[$VersionNumber < 12,
+			Sort[spol,SortedQ[LeadingTermIntern[#1[[1]]][[2]],LeadingTermIntern[#2[[1]]][[2]]]&],
+			SortBy[spol,LeadingTermIntern[#[[1]]][[2]]&,SortedQ]
+		],
+		spol
+	]
+]
 
 
-AddAdj[S_List] := Join[S,adj/@S];
+(* ::Text:: *)
+(*ExtractRules[vars,sys] generates a set of reduction rules out of the reduction system sys with the special feature that the cofactors of the reduction will be sowed whenever such a rule is applied. They can then be reaped using the Reap command.*)
+
+
+ExtractRules[sys_]:=
+Module[{a,b,coeff,i,p,q,f},
+	a=Unique[];b=Unique[];coeff=Unique[];
+	MapIndexed[(i = #2[[1]]; f = #1;
+		p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],f[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
+		q = Expand[Evaluate[coeff]*Prod[Evaluate[a],f[[2]],Evaluate[b]]];
+		With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]])&
+	,sys]//ReleaseHold
+]
+
+
+ExtractRule[f_,i_]:=
+Module[{a,b,coeff,p,q},
+	a=Unique[];b=Unique[];coeff=Unique[];
+	p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],f[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
+	q = Expand[Evaluate[coeff]*Prod[Evaluate[a],f[[2]],Evaluate[b]]];
+	With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]//ReleaseHold
+]
+
+
+SetAttributes[RewriteGroebner,HoldFirst]
+
+RewriteGroebner[cofactors_,F_]:=
+Module[{t,N,NC,i,j,k,a,b},
+	t = AbsoluteTiming[
+	If[VerboseOperatorGB > 0,
+		Print["Rewriting the cofactors..."];
+	];
+	N = Length[F];
+	NC = Length[cofactors];
+	cofactors[[;;N,1,2]] = F;
+	
+	cofactors = DeleteCases[CollectLeft /@ cofactors,{0,_,_},2];
+	
+	Monitor[
+	Do[
+		cofactors[[j]]\[NonBreakingSpace]= Flatten[Reap[
+			Do[
+				{a,i,b} = cofactors[[j,k]];
+				Sow[Map[{Prod[a,#[[1]]],#[[2]],Prod[#[[3]],b]}&,cofactors[[i]]]];
+			,{k,Length[cofactors[[j]]]}];
+		][[2]],2]//CollectLeft//ExpandLeft;
+	,{j,N+1,NC}];
+	,NC - j];
+	cofactors = ToNonCommutativeMultiply[cofactors];
+	][[1]];
+	If[VerboseOperatorGB > 1,
+		Print["Rewriting the cofactors took in total ", t];
+	];
+]
 
 
 (* ::Subsection::Closed:: *)
+(*Groebner basis without cofactors*)
+
+
+(* ::Text:: *)
+(*Implementation of the Buchberger algorithm to compute a (partial) Groebner basis of the ideal 'ideal' with at most 'maxiter' iterations being executed (default: 10). The return value is a  set of polynomials {f1,...,fn,g1,...gm} consisting of the elements f1,....,fn from 'ideal' and new elements g1,...,gm. *)
+(**)
+(*OptionPattern:*)
+(*	- Criterion (default: True): Tries to detect and delete redundant ambiguities during the Groebner basis computation.*)
+(*	- Ignore (default: 0): A non-negative integer that determines how many elements of the input will be ignored during the first computation of the ambiguities. *)
+(*	- MaxDeg (default: Infinity): Only ambiguities with degree smaller than or equal to MaxDeg will be considered during the Groebner basis computation (larger ambiguities are simply ignored). *)
+(*	- Parallel (default: True): Determines whether the computations for which it is possible, are executed in parallel (which speeds up the computation) or in series.*)
+(*	- Sorted (default: True):  Sorts the ambiguities before processing in ascending order. This speeds up the computation but results in a different (partial) Groebner basis.*)
+(*	*)
+
+
+GroebnerWithoutCofactors[ideal_,maxiter:_?IntegerQ:10,OptionsPattern[{MaxDeg->Infinity,Parallel->True,Sorted->True,Criterion->True}]]:=
+Module[{count,spol,p,h,G,lt,t,rules,criterion,oldlength,maxdeg,sorted,parallel,i},
+
+	criterion = OptionValue[Criterion];
+	sorted = OptionValue[Sorted];
+	parallel = OptionValue[Parallel];
+	maxdeg = OptionValue[MaxDeg];
+
+	G = CreateRedSys[ToProd/@ideal];
+	If[VerboseOperatorGB > 0,
+		Print["G has ", Length[G]," elements in the beginning.\n"]
+	];
+	
+	count = 0; t = 0; oldlength = 0;
+	rules = ExtractRules2[G];
+	spol = {0};
+
+	While[Length[spol] > 0 && count < maxiter,
+		count++;
+		If[VerboseOperatorGB > 0,
+			Print["Starting iteration ", count,"..."]
+		];
+		spol = CheckResolvability2[G,oldlength,Criterion->criterion,MaxDeg->maxdeg,Sorted->sorted,Parallel->parallel];
+		oldlength = Length[G];
+		
+		i = Length[spol];
+		t = AbsoluteTiming[Monitor[Do[
+			h = p//.rules;
+			If[h =!= 0,  
+				lt = LeadingTermIntern[h];
+				If[lt[[1]] =!= 1, h = Expand[1/lt[[1]]*h]];
+				AppendTo[G,CreateRedSys[h]];
+				AppendTo[rules,Sequence@@ExtractRules2[{G[[-1]]}]]
+			];
+			i--;
+		,{p,spol}];,i];][[1]];
+		If[VerboseOperatorGB > 1, 
+			Print["The second reduction took ", t]
+		];
+		If[VerboseOperatorGB > 0,
+			Print["Iteration ",count, " finished. G has now ", Length[G]," elements\n"]
+		];
+	];
+	
+	ToNonCommutativeMultiply[ToPoly[G]]
+]
+
+
+CheckResolvability2[sys_,oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Sorted->True,Parallel->True}]]:=
+Module[{amb,spol,t1,t2,lists,rules,words,parallel,str},
+	parallel = OptionValue[Parallel];
+
+	words = ExtractReducibleWords[sys];
+	rules = ExtractRules2[sys];
+	
+	(*generate ambiguities*)
+	t1 = AbsoluteTiming[
+		amb = GenerateAmbiguities[words[[;;oldlength]],words[[oldlength+1;;]],OptionValue[MaxDeg],Parallel->True]
+	][[1]];
+	If[VerboseOperatorGB > 0,
+		str = ToString[Length[amb]] <> " ambiguities in total" <> If[VerboseOperatorGB > 1, " (computation took " <> ToString[t1] <> ")", ""];
+		Print[str];
+	];
+	
+	(*process ambiguities*)
+	If[OptionValue[Criterion],
+		amb = DeleteRedundant[amb,words[[All,1]]]
+	];
+	If[OptionValue[Sorted],
+		amb = SortBy[amb,Length[#[[1]]]&];
+	];
+	
+	(*generate and reduce S-polynomials*)
+	t2 = AbsoluteTiming[
+	If[parallel && Length[amb] > 300,
+		spol = DeleteDuplicates[DeleteCases[ParallelMap[SPoly2[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]//.rules &,amb,DistributedContexts->Automatic,Method->"ItemsPerEvaluation" -> 1000],0]],
+		spol = DeleteDuplicates[DeleteCases[Map[SPoly2[#,sys[[#[[4,1]]]],sys[[#[[4,2]]]]]//.rules &,amb],0]]];
+	][[1]];
+
+	If[VerboseOperatorGB > 1,
+		Print["Reducing S-polys: ", t2, " (", Length[spol], "remaining)"]
+	];
+	
+	If[OptionValue[Sorted],
+		If[$VersionNumber < 12,
+			Sort[spol,SortedQ[LeadingTermIntern[#1][[2]],LeadingTermIntern[#2][[2]]]&],
+			SortBy[spol,LeadingTermIntern[#][[2]]&,SortedQ]
+		],
+		spol
+	]
+]
+
+
+(* ::Text:: *)
+(*Parallelising this function does not make sense. It is faster when executed sequential.*)
+
+
+ExtractRules2[sys_]:=
+Module[{a,b,i},
+	a=Unique[];b=Unique[];
+	Table[Prod[Pattern[Evaluate[a],BlankNullSequence[]],i[[1]],Pattern[Evaluate[b],BlankNullSequence[]]]->
+		Prod[a,i[[2]],b],{i,sys}]
+]
+
+
+ApplyRules[expr_List,G_]:= ApplyRules[#,G]&/@expr
+
+
+ApplyRules[expr_,G_]:=
+	ToNonCommutativeMultiply[ToProd[expr]//.ExtractRules[CreateRedSys[G]]]
+
+
+(* ::Subsection::Closed:: *)
+(*Intersection (of ideal with ideal or subalgebra) *)
+
+
+Intersect[II_,JJ_,OptionsPattern[{Vars->{},MaxIter->1, CutOff->-1}]]:=
+Module[{t,I,J,IJ,oldIsDegLex,cofactors,G,vars,spol,rules,commutator,a,b,c,t1,t2,N,pos,F,cutoff,red},
+	cutoff = OptionValue[CutOff];
+	
+	(* convert to Prod data structure *)
+	If[FreeQ[II,Prod]||FreeQ[JJ,Prod],
+		I = ToProd/@II; J = ToProd/@JJ,
+		I = II; J = JJ
+	];
+	
+	(* find the variables that appear in I or in J *)
+	vars = If[Length[OptionValue[Vars]] > 0,
+			OptionValue[Vars],
+			Intersection[WordOrder,Flatten[Map[#/.Alternatives[Plus,Times,Prod]->List&,Join[I,J]]]]
+			];
+	
+	(* set up elimination order *)
+	If[VerboseOperatorGB > 0,
+		Print["Switching to elimination order..."];
+	];
+	oldIsDegLex = SortedQ === DegLex;
+	If[oldIsDegLex,
+		SetUpRing[WordOrder,{t}],
+		SetUpRing[Sequence@@Reverse[varSets],{t}]
+	];
+	
+	(* set up the ideal (tI + (1-t)J + tX - Xt) *)
+	G = Join[Map[Prod[t,#] &,I],Map[Prod[1-t,#] &,J]];
+	commutator = Prod[a___,t,b_,c___]->Prod[a,b,t,c];
+	
+	(* compute Groebner basis *)
+	N = 0;
+	Do[
+		If[VerboseOperatorGB > 0,
+			Print["\nStarting iteration ", i, "..."]
+		];
+		(* do interreduction *)
+		(* but only use rules until cutoff - speeds things up *)
+		
+			If[0 < cutoff && cutoff < Length[G],
+				F = Join[G[[;;cutoff]],Select[G[[cutoff+1;;]],FreeQ[#,t]&]];
+				rules = Append[ExtractRules[CreateRedSys[F]],commutator];
+				If[VerboseOperatorGB > 0,
+					Print["No interreduction due to cutoff."];
+				],
+				t1 = AbsoluteTiming[
+					rules = Append[ExtractRules[CreateRedSys[G]],commutator];
+					{G,cofactors} = Interreduce[G,Rules->rules];
+					rules = Append[ExtractRules[CreateRedSys[G]],commutator];
+				][[1]];
+				If[VerboseOperatorGB > 0,
+					Print["Interreduction took ", t1, ". G has now ", Length[G], " elements."];
+				];
+			];
+		
+		(* generate S-polies *)
+		(* only pick those elements in G that have not already been there before *)
+		pos = Position[cofactors,{{_,i_,_}}/;i <= N];
+		pos = Complement[List/@Range[Length[G]],pos];
+		spol = SPolyForIntersection[Extract[G,pos],t,vars];
+		
+		(* reduce S-polies - do this in blocks of smaller size - speeds things up  *)
+		t2 = AbsoluteTiming[
+			red = {};
+			Do[
+				red = Join[red,DeleteCases[spol[[1000*(j-1) + 1 ;; Min[1000*j,Length[spol]]]] //.rules,0]]//DeleteDuplicates;
+			,{j,Length[spol]/1000+1}]
+		][[1]];
+		
+		N = Length[G];
+		G = Join[G,red];
+		If[VerboseOperatorGB > 0,
+			Print["Reduction took ", t2 , " (", Length[red], " reminaing)"];
+			Print["G has now ", Length[G], " elements (", Length[Select[G,FreeQ[#,t]&]], " not involving t)"];
+		];
+	,{i,OptionValue[MaxIter]}];
+	
+	(* set order back to what it was before *)
+	If[VerboseOperatorGB > 0,
+		Print["\nSwitching back to original order..."];
+	];
+	If[oldIsDegLex,
+		SetUpRing[WordOrder[[;;-2]]],
+		SetUpRing[Sequence@@Reverse[varSets[[2;;]]]]
+	];
+	
+	(* return all elements not involving t *)
+	Select[G,FreeQ[#,t]&]
+]
+
+
+SPolyForIntersection[G_,t_,vars_]:=
+Module[{mon,f,g,lm,tail,spol},
+	(* generate new S-polies *)
+	mon = Map[MonomialList,G];
+	(* every element is of the form ft + g *)
+	f = (Select[#,!FreeQ[#,t]&]&/@ mon)/.t->1;
+	f = Apply[Plus,f,{1}];
+	g = Select[#,FreeQ[#,t]&]&/@ mon;
+	g = Apply[Plus,g,{1}];
+
+	lm = Prod@@LeadingTermIntern[#][[2]]&/@f;
+	tail = f-lm;
+	spol = (helper[lm,tail,g,t,#]&/@ vars)//Flatten;
+
+	Print[Length[spol], " S-polies"];
+	spol
+]
+
+
+helper[lm_,tail_,g_,t_,x_] := MapThread[Prod[#1,x,t] + Prod[#2,t,x] + Prod[#3,x]&,{lm,tail,g}]
+
+
+IntersectSubalgebra[I_,subalg_,OptionsPattern[{MaxIter->5}]]:=
+Module[{G,Y,IJ,cofactors,oldIsDegLex},
+	(* set up generating set {Subscript[y, i] - Subscript[g, i], Subscript[f, j] |\[NonBreakingSpace]Subscript[g, i] \in subalg, Subscript[f, j] \in I} *)
+	Y = Map[Unique[]&,subalg];
+	IJ = Join[Y-subalg,I];
+	
+	(* switch to elimination order *)
+	oldIsDegLex = SortedQ === DegLex;
+	If[VerboseOperatorGB > 0,
+		Print["Switching to elimination order..."];
+	];
+	If[oldIsDegLex,
+		SetUpRing[Y,WordOrder],
+		SetUpRing[Y,Sequence@@Reverse[varSets]]
+	];
+	
+	(* compute Groebner basis *)
+	cofactors = {};
+	G = Groebner[cofactors,IJ,OptionValue[MaxIter]];
+	If[VerboseOperatorGB > 0,
+		Print["\nSwitching back to original order..."];
+	];
+	
+	(* switch back to old order *)
+	If[oldIsDegLex,
+		SetUpRing[WordOrder[[Length[Y]+1;;]]],
+		SetUpRing[Sequence@@Reverse[varSets[[;;-2]]]]
+	];
+	
+	(* pick all non-zero elements in K<Y> and replace the Subscript[y, i] *)
+	DeleteCases[Select[G,FreeQ[#,Alternatives@@WordOrder]&]/.Thread[Rule[Y,subalg]],0]
+]
+
+
+(* ::Subsection::Closed:: *)
+(*Computing normal forms*)
+
+
+(* ::Text:: *)
+(*ReducedForm[cofactors,G,exp] can be used to reduce the expression exp with the elements of G. The linear combination of these reduction steps is saved in the list cofactors. *)
+(*Exp can also be a list of expressions. *)
+
+
+SetAttributes[ReducedForm,HoldFirst]
+
+ReducedForm[cofactors_,G_,exp_]:=
+Module[{t,rules,a,i,b,j},
+	cofactors = {};
+	rules = ExtractRules[CreateRedSys[G]];
+	t = Reap[ToProd[exp]//.rules];
+	If[Length[t[[2]]] > 0,
+		cofactors = ToNonCommutativeMultiply[Map[({a,j,b} = #; {-a,G[[j]],b})&, t[[2,1]]]];
+	];
+	ToNonCommutativeMultiply[t[[1]]]
+]
+
+
+ReducedForm[cofactors_,G_,exp:_?ListQ]:=
+Module[{i,t,rules,a,b,j},
+	cofactors = Table[{},Length[exp]];
+	rules = ExtractRules[CreateRedSys[G]];
+	Table[
+		t = Reap[ToProd[exp[[i]]]//.rules];
+		If[Length[t[[2]]] > 0,
+			cofactors[[i]] = ToNonCommutativeMultiply[Map[({a,j,b} = #; {-a,G[[j]],b})&, t[[2,1]]]];
+		];
+		ToNonCommutativeMultiply[t[[1]]]
+	,{i,Length[exp]}
+	]
+]
+
+
+SetAttributes[ReducedFormIntern,HoldFirst]
+
+ReducedFormIntern[cofactors_,G_,exp:_?ListQ,OptionsPattern[{Shuffle->False}]]:=
+Module[{i,t,rules},
+	cofactors = Table[{},Length[exp]];
+	rules = ExtractRules[CreateRedSys[G]];
+	If[OptionValue[Shuffle],
+		rules = RandomSample[rules];
+	];
+	Table[
+		t = Reap[ToProd[exp[[i]]]//.rules];
+		If[Length[t[[2]]] > 0,
+			cofactors[[i]] = ToNonCommutativeMultiply[ReplacePart[#,1->-#[[1]]]&/@t[[2,1]]];
+		];
+		ToNonCommutativeMultiply[t[[1]]]
+	,{i,Length[exp]}
+	]
+]
+
+
+(* ::Subsection::Closed:: *)
+(*Interreduction*)
+
+
+Interreduce[ideal_,OptionsPattern[{Rules->None,Complete->True}]]:=
+If[OptionValue[Complete],
+	interreduceFull[ideal,Rules->OptionValue[Rules]],
+	interreduceHead[ideal,Rules->OptionValue[Rules]]
+]
+
+
+interreduceFull[ideal_,OptionsPattern[{Rules->None}]]:=
+Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart,lc},
+	(*set everything up*)
+	G = If[FreeQ[ideal,Prod],
+		ToProd/@ideal,
+		ideal
+	];
+	lc = MakeMonic[G];
+	cofactors = MapIndexed[{{1/#1*Prod[],#2[[1]],Prod[]}}&,lc];
+	
+	sys = CreateRedSys[ideal];
+	rules = If[OptionValue[Rules] === None,
+		ExtractRules[sys],
+		OptionValue[Rules]
+	];
+	i = 1; s = Length[G];
+	
+	(*actual interreduction*)
+	While[i <= s,
+		If[G[[i]]===Null,i++;Continue[]];
+		r = Reap[gi = G[[i]]//.Drop[rules,{i}]];
+		If[gi===0,
+			rules[[i]] = Null->Null;
+			G[[i]] = Null;
+			cofactors[[i]] = Null;
+			i++,
+			If[gi =!= G[[i]],
+				lt = LeadingTermIntern[gi];
+				(* if rules was used for tracing, adapt cofactors *)
+				If[Length[r[[2]]] > 0,
+					r = r[[2,1]];
+					newPart = Flatten[Table[Map[{Prod[r[[i,1]],#[[1]]],#[[2]],Prod[#[[3]],r[[i,3]]]}&,cofactors[[r[[i,2]]]]],{i,Length[r]}],1];
+					cofactors[[i]] = Join[cofactors[[i]],newPart];
+				];
+				(* make poly monic if it is not already *)
+				If[lt[[1]] =!= 1, 
+					gi = Expand[1/lt[[1]]*gi]; 
+					cofactors[[i]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ cofactors[[i]]);
+				];
+				G[[i]]=gi;
+				sys = CreateRedSys[gi];
+				p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],sys[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
+				q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[2]],Evaluate[b]]];
+				rules[[i]] = ReleaseHold[With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]];
+				i = 1,
+				i++;
+			];
+		];
+	];
+	{DeleteCases[G,Null],Map[ExpandLeft[CollectLeft[#]]&,DeleteCases[cofactors,Null]]}
+]
+
+
+interreduceHead[ideal_,OptionsPattern[{Rules->None}]]:=
+Module[{G,rules,i,s,gi,cofactors,r,lt,sys,a,b,coeff,p,q,newPart,lc,tail},
+	(*set everything up*)
+	G = If[FreeQ[ideal,Prod],
+		ToProd/@ideal,
+		ideal
+	];
+	lc = MakeMonic[G];
+	cofactors = MapIndexed[{{1/#1*Prod[],#2[[1]],Prod[]}}&,lc];
+	
+	sys = CreateRedSys[ideal];
+	rules = If[OptionValue[Rules] === None,
+		ExtractRules[sys],
+		OptionValue[Rules]
+	];
+	i = 1; s = Length[G];
+	
+	(*actual interreduction*)
+	While[i <= s,
+		If[G[[i]]===Null,i++;Continue[]];
+		gi = G[[i]];
+		lt = LeadingTermIntern[gi];
+		tail = Remainder[gi,lt];
+		r = Reap[lt = ToProd[lt[[2]]]/.Drop[rules,{i}]];
+		gi = lt + tail;
+		If[gi===0,
+			rules[[i]] = Null->Null;
+			G[[i]] = Null;
+			cofactors[[i]] = Null;
+			i++,
+			If[gi =!= G[[i]],
+				lt = LeadingTermIntern[gi];
+				(* if rules was used for tracing, adapt cofactors *)
+				If[Length[r[[2]]] > 0,
+					r = r[[2,1]];
+					newPart = Flatten[Table[Map[{Prod[r[[i,1]],#[[1]]],#[[2]],Prod[#[[3]],r[[i,3]]]}&,cofactors[[r[[i,2]]]]],{i,Length[r]}],1];
+					cofactors[[i]] = Join[cofactors[[i]],newPart];
+				];
+				(* make poly monic if it is not already *)
+				If[lt[[1]] =!= 1, 
+					gi = Expand[1/lt[[1]]*gi]; 
+					cofactors[[i]] = (ReplacePart[#,1 -> 1/lt[[1]]*#[[1]]]&/@ cofactors[[i]]);
+				];
+				G[[i]]=gi;
+				sys = CreateRedSys[gi];
+				p = Prod[Pattern[Evaluate[a],BlankNullSequence[]],sys[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
+				q = Expand[Evaluate[coeff]*Prod[Evaluate[a],sys[[2]],Evaluate[b]]];
+				rules[[i]] = ReleaseHold[With[{x ={-Evaluate[coeff]*Prod[Evaluate[a]],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]]];
+				i = 1,
+				i++;
+			];
+		];
+	];
+	{DeleteCases[G,Null],Map[ExpandLeft[CollectLeft[#]]&,DeleteCases[cofactors,Null]]}
+]
+
+
+(* ::Section::Closed:: *)
+(*Quiver*)
+
+
+(* ::Subsection:: *)
 (*Quiver*)
 
 
@@ -1403,14 +1648,14 @@ QConsequenceCriterion[{ai_,gi_,bi_},signaturef_,Q_]:= Module[{sigGi,sigMonomials
 
 SetAttributes[QCompletion,HoldFirst]
 
-QCompletion[cofactors_,ideal_,Q:Quiver,maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True,IterCount->0}]]:=
-Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,intern,criterion,i},
-	info = OptionValue[Info];
+QCompletion[cofactors_,ideal_,Q:Quiver,maxiter:_?IntegerQ:10, OptionsPattern[{Criterion->True,Ignore->0,MaxDeg->Infinity,Parallel->True,Sorted->True,IterCount->0}]]:=
+Module[{lc,count,spol,lt,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrule,maxdeg,intern,criterion,i,itercount},
 	sorted = OptionValue[Sorted];
 	parallel = OptionValue[Parallel];
 	maxdeg = OptionValue[MaxDeg];
 	criterion = OptionValue[Criterion];
-	intern = FreeQ[ideal,NonCommutativeMultiply]; 
+	itercount = OptionValue[IterCount];
+	intern = !FreeQ[ideal,Prod]; 
 
 	If[intern,
 		G = ideal,
@@ -1420,14 +1665,21 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 	];
 	
 	G = CreateRedSys[G];
-	oldlength = Length[G];
+	oldlength = OptionValue[Ignore];
 	t1 = 0; t2 = 0; count = 0;
-	If[info,Print["G has ", Length[G]," elements in the beginning."],Print[]];
+	If[VerboseOperatorGB > 0,
+		Print["G has ", Length[G]," elements in the beginning.\n"]
+	];
 
-	spol = CheckQResolvability[G,Q,OptionValue[Ignore],Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
 	rules = ExtractRules[G];
+	spol = {0};
 
 	While[Length[spol] > 0 && count < maxiter,
+		count++;
+		If[VerboseOperatorGB > 0,
+			Print["Starting iteration ", count + itercount ,"..."]
+		];
+		spol = CheckQResolvability[G,Q,oldlength,Criterion->criterion,MaxDeg->maxdeg,Sorted->sorted,Parallel->parallel];
 		t1 = AbsoluteTiming[
 		i = Length[spol];
 		Monitor[Do[
@@ -1451,14 +1703,11 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 			i--;
 		,{p,spol}];,i];][[1]];
 		
-		count++;
-		If[info, 
+		If[VerboseOperatorGB > 1, 
 			Print["The second reduction took ", t1];
-			Print["Iteration ",count + OptionValue[IterCount], " finished. G has now ", Length[G]," elements\n"]
 		];
-		If[count < maxiter, 
-			spol = CheckQResolvability[G,Q,oldlength,Criterion->criterion,MaxDeg->maxdeg,Info->info,Sorted->sorted,Parallel->parallel];
-			oldlength = Length[G];
+		If[VerboseOperatorGB > 0,
+			Print["Iteration ",count + itercount, " finished. G has now ", Length[G]," elements\n"]
 		];
 	];
 	
@@ -1466,15 +1715,14 @@ Module[{lc,count,spol,lt,info,p,h,G,r,t1,t2,rules,sorted,oldlength,parallel,hrul
 	
 	If[intern,
 		G,
-		RewriteGroebner[cofactors,ideal,Info->info];
+		RewriteGroebner[cofactors,ideal];
 		ToNonCommutativeMultiply[G]
 	]
 ]
 
 
-CheckQResolvability[sys_, Q:Quiver, oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Info->False,Parallel->True,Sorted->True}]]:=
-Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
-	info = OptionValue[Info];
+CheckQResolvability[sys_, Q:Quiver, oldlength:_?IntegerQ:0,OptionsPattern[{Criterion->True,MaxDeg->Infinity,Parallel->True,Sorted->True}]]:=
+Module[{amb,spol,rules,parallel,words,r,t1,t2,t3,str},
 	parallel = OptionValue[Parallel];
 
 	(*generate ambiguities*)
@@ -1486,11 +1734,14 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 	(* remove ambiguities whose source is not compatible *)
 	amb = Select[amb,CompatibleQ[Prod@@#[[1]],Q]&];
 	
-	If[info,Print[Length[amb]," ambiguities in total (computation took ",t1, ")"]];
+	If[VerboseOperatorGB > 0,
+		str = ToString[Length[amb]] <> " ambiguities in total" <> If[VerboseOperatorGB > 1, " (computation took " <> ToString[t1] <> ")", ""];
+		Print[str];
+	];
 	
 	(*process ambiguities*)
 	If[OptionValue[Criterion],
-		amb = DeleteRedundant[amb,words,Info->info];
+		amb = DeleteRedundant[amb,words];
 	];
 	If[OptionValue[Sorted],
 		amb = SortBy[amb,Length[#[[1]]]&];
@@ -1505,7 +1756,9 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 		]
 	,{_,0,_}];
 	][[1]];
-	If[info,Print["Generating S-polys: ",t2 ," (",Length[spol], " in total)"]];
+	If[VerboseOperatorGB > 1,
+		Print["Generating S-polys: ",t2 ," (",Length[spol], " in total)"]
+	];
 	
 	(*reduce S-polynomials*)
 	rules = ExtractRules[sys];
@@ -1519,7 +1772,9 @@ Module[{amb,spol,info,rules,parallel,words,r,t1,t2,t3},
 											{}
 											])&,spol],{}],#[[2]]&];
 	][[1]];
-	If[info,Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]];
+	If[VerboseOperatorGB > 1,
+		Print["Reducing S-polys: ",t3, " (",Length[spol], " remaining)"]
+	];
 	If[OptionValue[Sorted],
 		If[$VersionNumber < 12,
 			Sort[spol,SortedQ[LeadingTermIntern[#1[[2]]][[2]],LeadingTermIntern[#2[[2]]][[2]]]&],
@@ -1546,13 +1801,87 @@ Module[{A,C,ABC},
 ]
 
 
+(* ::Section::Closed:: *)
+(*Certifying operator identities*)
+
+
+(* ::Subsection::Closed:: *)
+(*Adjungate operator definition & auxiliary stuff*)
+
+
+(* ::Text:: *)
+(*Properties of the adjoint operator. Compatible with Prod[] and Mathematica's non-commutative multiplication.*)
+
+
+adj[Prod[a_]]:=Prod[adj[a]]
+adj[Prod[a__,b__]] := Prod[adj[Prod[b]],adj[Prod[a]]]
+adj[Prod[]]:= Prod[]
+adj[Times[a__,Prod[b___]]]:= a adj[Prod[b]]
+adj[a___,b_Plus,c___]:=(adj[a,#,c]&/@b)
+adj[adj[a__]] := a
+
+
+adj[NonCommutativeMultiply[a_,b_]] := NonCommutativeMultiply[adj[b],adj[a]]
+adj[a_?CoeffQ]:= a
+adj[-a_]:= -adj[a];
+adj[Times[a_?CoeffQ,NonCommutativeMultiply[b___]]]:= a adj[NonCommutativeMultiply[b]]
+adj[Times[a_?CoeffQ,b_]]:=a adj[b]
+
+
+Pinv[a_] := {a**SuperDagger[a]**a-a,SuperDagger[a]**a**SuperDagger[a]- SuperDagger[a],adj[SuperDagger[a]]**adj[a]-a**SuperDagger[a],adj[a]**adj[SuperDagger[a]]-SuperDagger[a]**a};
+Pinv[a_,b_] := {a**b**a-a,b**a**b- b,adj[b]**adj[a]-a**b,adj[a]**adj[b]-b**a};
+
+
+AddAdj[S_List] := Join[S,adj/@S];
+
+
+(* ::Subsection::Closed:: *)
+(*Cancellability*)
+
+
+ApplyLeftCancellability[II_,aa_,OptionsPattern[{MaxIter->1, Subalgebra->False, Vars->{}}]]:=
+Module[{G,f,I,a,cofactors,rules,b,c,vars,subalg},
+	If[FreeQ[II,Prod] ||\[NonBreakingSpace]FreeQ[aa,Prod],
+		I = ToProd/@II; a = ToProd[aa],
+		I = II; a = aa
+	];
+	f = Prod[adj[a],a];
+	(* all variables that should be considered during the computation *)
+	If[Length[OptionValue[Vars]] > 0,
+		vars = OptionValue[Vars],
+		vars = WordOrder
+	];
+	(* compute Groebner basis of intersection either of ideals or of ideal with subalgebra *)
+	If[OptionValue[Subalgebra],
+		subalg = Join[{f},ToProd/@vars];
+		G = IntersectSubalgebra[I,subalg,MaxIter->OptionValue[MaxIter]],
+		G = Intersect[I,{f},MaxIter->OptionValue[MaxIter],Vars->vars]
+	];
+	rules = ExtractRightRules[CreateRedSys[{f}]];
+	(* only pick those elements which are in the intersection when (a^*a) is considered as a right ideal *)
+	cofactors = Cases[Map[Reap[#//.rules]&,G],{0,{c__}}->c];
+	(* transform a^*ax into ax *)
+	ToNonCommutativeMultiply/@Map[Prod[a,Plus@@(#//.{{Prod[],b__,c__}->c,{-Prod[],b__,c__}->-c})]&,cofactors]
+]
+
+
+ExtractRightRules[sys_]:=
+Module[{b,coeff,i,p,q,f},
+	b=Unique[];coeff=Unique[];
+	MapIndexed[(i = #2[[1]]; f = #1;
+		p = Prod[f[[1]],Pattern[Evaluate[b],BlankNullSequence[]]];
+		q = Expand[Evaluate[coeff]*Prod[f[[2]],Evaluate[b]]];
+		With[{x ={-Evaluate[coeff]*Prod[],i,Prod[Evaluate[b]]},y=q},Alternatives[Pattern[Evaluate[coeff],BlankNullSequence[]]*p,p]:> Hold[Sow[x];y]])&
+	,sys]//ReleaseHold
+]
+
+
 (* ::Subsection::Closed:: *)
 (*Certify*)
 
 
-Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Info->False,Parallel->True,Sorted->True,Criterion->True}]]:=
- Module[{info,maxiter,N,shuffle,normalForm,cofactors,cofactorsReduction,G,sigAssump,sigClaim,certificate,toIgnore,toIgnoreOld,alreadyReduced,i,knowns,unknowns,t,assumptions,claims,count},
-	info = OptionValue[Info];
+Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,MaxDeg->Infinity,MultiLex->False,Parallel->True,Sorted->True,Criterion->True}]]:=
+ Module[{maxiter,N,shuffle,normalForm,cofactors,cofactorsReduction,G,sigAssump,sigClaim,certificate,toIgnore,toIgnoreOld,alreadyReduced,i,j,knowns,unknowns,t,assumptions,claims,count},
 	maxiter = OptionValue[MaxIter];
 	
 	assumptions = ToProd/@assumptionsInput;
@@ -1573,32 +1902,35 @@ Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,
 	];
 
 	(*set up the ring*)
-	If[info,
+	If[VerboseOperatorGB > 0,
 		Print["Using the following monomial ordering:"]
 	];
 	If[OptionValue[MultiLex],
 		knowns = DeleteDuplicates[Cases[Q[[All,1]],Alternatives@@Flatten[Map[#/.Alternatives[Plus,Times,NonCommutativeMultiply]->List&,claims]]]];
 		unknowns = DeleteDuplicates[Cases[Q[[All,1]],var_/;!MemberQ[knowns,var]]];
-		SetUpRing[knowns,unknowns,Info->info],
-		SetUpRing[DeleteDuplicates[Q[[All,1]]],Info->info]
+		SetUpRing[knowns,unknowns],
+		SetUpRing[DeleteDuplicates[Q[[All,1]]]]
 	];
 
 	(*interreduce the generators*)
-	{G,cofactors} = Interreduce[assumptions,InputProd->True];
+	{G,cofactors} = Interreduce[assumptions];
 	N = Length[G];
-	If[info, Print["\nInterreduced the input from ", Length[assumptions], " polynomials to ", Length[G], ".\n"]];
+	If[VerboseOperatorGB > 0,
+		Print["\nInterreduced the input from ", Length[assumptions], " polynomials to ", Length[G], ".\n"]
+	];
 	
 	(*compute the Groebner basis and reduce the claims*)
-	If[info, Print["Computing a (partial) Groebner basis and reducing the claim...\n"]];
+	If[VerboseOperatorGB > 0,
+		Print["Computing a (partial) Groebner basis and reducing the claim...\n"]
+	];
 	(*do computation iteratively*)
 	toIgnore = 0;
 	i = 1;
-	alreadyReduced = Table[False,{i,Length[claims]}];
-	certificate = Table[{},{i,Length[claims]}];
+	alreadyReduced = Table[False,{j,Length[claims]}];
+	certificate = Table[{},{j,Length[claims]}];
 	While[MemberQ[alreadyReduced,False] && i <= maxiter,
 		toIgnoreOld = Length[G];
-		If[info,Print["Starting iteration ", i ,"...\n"]];
-		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Info->OptionValue[Info],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],IterCount->i-1];
+		G = Groebner[cofactors,G,1,Ignore->toIgnore,MaxDeg->OptionValue[MaxDeg],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted],Criterion->OptionValue[Criterion],IterCount->i-1];
 		i++;
 		toIgnore = toIgnoreOld;
 		count = 0;
@@ -1623,15 +1955,16 @@ Certify[assumptionsInput_List,claimsInput_,Q:Quiver,OptionsPattern[{MaxIter->10,
 	
 	(* return the reduced claims and the certificates *)
 	normalForm = Table[claims[[i]] - MultiplyOut[certificate[[i]]],{i,Length[claims]}];
+	normalForm = ToNonCommutativeMultiply/@ToProd/@normalForm;
 	If[Head[claimsInput] =!= List, 
 		sigClaim = sigClaim[[1]]; certificate = certificate[[1]]; normalForm = normalForm[[1]];
 	];
 	
-	If[info,
+	If[VerboseOperatorGB > 0,
 		(*full info*)
 		If[MemberQ[alreadyReduced,False],
-			Print["\nFailed! Not all claims could be reduced to 0."],
-			Print["\nDone! All claims were successfully reduced to 0."];
+			Print["Failed! Not all claims could be reduced to 0."],
+			Print["Done! All claims were successfully reduced to 0."];
 		];
 		{Map[QSignature[#,Q]&,assumptions],sigClaim,normalForm,certificate},
 		(*only basic info*)
@@ -1667,6 +2000,43 @@ Module[{a,b,i,j,l,r,f,occurring,done},
 
 
 (* ::Subsection::Closed:: *)
+(*Check Certificate*)
+
+
+MultiplyOut[certificate:{{_,_,_}...}] := Expand[ToNonCommutativeMultiply[Total[Map[ToProd,certificate]]]]
+
+
+LinearCombinationQ[certificate:{{_,_,_}...}, assumptions_List] := AllTrue[certificate[[All,2]],MemberQ[assumptions,#]&]
+
+
+CertificateCoeffQ[_Integer] := True
+CertificateCoeffQ[_] := False
+
+
+CoefficientTest[certificate_] := Module[
+	{terms},
+	terms = Flatten[Map[ToProd,Flatten[certificate]]/.Plus->List];
+	And @@ (MatchQ[0 | Prod[___] | _?CertificateCoeffQ * Prod[___]]/@terms)
+];
+
+
+IntegerCoeffQ[certificate_] := Module[
+	{terms},
+	terms = Flatten[Map[ToProd,Flatten[certificate]]/.Plus->List];
+	And @@ (MatchQ[0 | Prod[___] | _Integer * Prod[___]]/@terms)
+];
+
+
+CheckCertificate[certificate:{{_,_,_}...},claim_, assumptions_] := 
+	(MultiplyOut[certificate] === claim) && 
+	LinearCombinationQ[certificate,assumptions] && 
+	CoefficientTest[certificate]
+
+
+CheckCertificates[certificates_,claims_,assumptions_] := MapThread[CheckCertificate[#1,#2,assumptions]&,{certificates,claims}]
+
+
+(* ::Section::Closed:: *)
 (*End*)
 
 
@@ -1674,7 +2044,7 @@ Copyright[a_String,b___String]:= Print[StringJoin[Prepend[{"\n",#}&/@{b},a]]]
 
 
 Copyright[
-    "Package OperatorGB version 1.2.1",
+    "Package OperatorGB version 1.2.2",
     "Copyright 2019, Institute for Algebra, JKU",
     "by Clemens Hofstadler, clemens.hofstadler@jku.at"];
 
