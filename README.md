@@ -13,11 +13,19 @@ Version 1.2 includes (for both versions of the package):
   * A 'Certify' command that does everything from checking compatibility, to computing a Groebner basis as well as a cofactor representation all fully automatically.
   * Q-completion procedure (so far only in Mathematica) (new in this version)
 -----------
-NEW since Version 1.2:
+<b>NEW in Version 1.2.1:</b>
 
 Mathematica:
  * IntegerCoeffQ function
  * CheckCertificate function
+
+<b>NEW in Version 1.2.2:</b>
+
+Mathematica:
+ * Info option has been changed to global variable VerboseOperatorGB (now 3 possibilities - no info, some info, all info)
+ * Intersection of (two-sided) ideal with another (two-sided) ideal or subalgebra
+ * Can automatically find elements in an ideal to which *-cancellability is applicable
+ * Reorganised stuff
  
 ----------- 
 TODO:
@@ -27,11 +35,12 @@ Both:
  * Test file
 
 Mathematica:
-  * Info: version that prints only some information (done but not yet uploaded)
-  * Certify/Groebner without Info => many new lines. Get rid of this (done but not yet uploaded)
-  * Certify: change how returned normal forms are computed
+  * Trace cofactors for the intersections
   
 Sage:
   * Q-order-compatibility
   * Q-completion
   * IntegerCoeffQ function
+  * Info -> VerboseOperatorGB
+  * Intersections
+  * *-cancellability
