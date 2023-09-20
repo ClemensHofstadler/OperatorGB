@@ -1922,8 +1922,6 @@ Module[{vars,deg,m,n,I,T,TInv,t,tinv,oldOrdering,commutators,J,G,pos,rules,p},
 	,{i,m}];
 	I = (I/.rules)//.ExtractRules[CreateRedSys[J]];
 	
-	Print[I];
-	
 	(* compute Gr\[ODoubleDot]bner basis and intersect with K<X> *)
 	G = Groebner[cofactors,ToNonCommutativeMultiply/@Join[J,I],maxiter,Criterion->OptionValue[Criterion],Ignore->OptionValue[Ignore],MaxDeg->OptionValue[MaxDeg],Parallel->OptionValue[Parallel],Sorted->OptionValue[Sorted]];
 	pos = Position[G,g_/;FreeQ[g,Alternatives@@Join[T,TInv]],{1},Heads->False];
